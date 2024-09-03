@@ -6,6 +6,7 @@ import random
 import socket
 import sys
 import argparse
+import timeit
 
 import torch
 
@@ -28,7 +29,9 @@ def parse_args():
 
 if __name__ == "__main__":
   args = parse_args()
-  
+
+  start = timeit.default_timer()
+
   USER = getpass.getuser()
   MACHINE = socket.gethostname().split('.')[0]
   FILE_SYS = 'nlp/scr'
@@ -75,3 +78,6 @@ if __name__ == "__main__":
                           prefix_len=32,
                           window_len=64,
                           batch_size=32)
+
+end = timeit.default_timer()
+print(f'Elapsed time={end-start:.2f} sec')
