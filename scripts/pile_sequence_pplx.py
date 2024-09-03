@@ -23,7 +23,7 @@ def set_seed(seed):
 if __name__ == "__main__":
   USER = getpass.getuser()
   MACHINE = socket.gethostname().split('.')[0]
-  FILE_SYS = 'scr-ssd'
+  FILE_SYS = 'nlp/scr'
   MODEL_DIR = f'/{FILE_SYS}/{USER}/models'
   print(f'Local dir={MODEL_DIR}')
   assert os.path.isdir(MODEL_DIR)
