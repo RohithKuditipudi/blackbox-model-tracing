@@ -5,6 +5,7 @@ import os
 import random
 import socket
 import sys
+import argparse
 
 import torch
 
@@ -19,8 +20,15 @@ def set_seed(seed):
   torch.manual_seed(seed)
   torch.cuda.manual_seed_all(seed)
 
+def parse_args():
+    parser = argparse.ArgumentParser(description="Compute perplexity at different model checkpoints.")
+    parser.add_argument('--model_id', type=str, default='EleutherAI/pythia-6.9b-deduped',
+                        help="The model identifier for the model to use.")
+    return parser.parse_args()
 
 if __name__ == "__main__":
+  args = parse_args()
+  
   USER = getpass.getuser()
   MACHINE = socket.gethostname().split('.')[0]
   FILE_SYS = 'nlp/scr'
@@ -32,7 +40,7 @@ if __name__ == "__main__":
 
   set_seed(0)
 
-  model_id = 'EleutherAI/pythia-6.9b-deduped'
+  model_id = args.model_id
   revisions = [
       'step5000',
       'step10000',
