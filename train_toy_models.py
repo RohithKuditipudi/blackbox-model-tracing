@@ -28,6 +28,7 @@ import sys
 
 N = 20
 N_TRAIN_SAMPLES = 100000
+EPOCHS = 10
 
 def train_tiny(train_texts, config, tokenizer, save_dir):
     model = LlamaForCausalLM(config)
@@ -40,24 +41,39 @@ def train_tiny(train_texts, config, tokenizer, save_dir):
 
     model.train()
 
-    batch_iterator = tqdm(train_dataloader)
-
-    for batch in batch_iterator:
+    for epoch in range(EPOCHS):
+        print(f"Epoch {epoch + 1}/{EPOCHS}")
+        batch_iterator = tqdm(train_dataloader)
         
-        inputs = tokenizer(batch, padding=True, truncation=True, return_tensors="pt")
-        inputs = {k: v.to(device) for k, v in inputs.items()}
+        for batch in batch_iterator:
+            inputs = tokenizer(batch, padding=True, truncation=True, return_tensors="pt")
+            inputs = {k: v.to(device) for k, v in inputs.items()}
 
-        inputs['labels'] = inputs['input_ids'].clone()
+            inputs['labels'] = inputs['input_ids'].clone()
 
-        outputs = model(**inputs)
+            outputs = model(**inputs)
 
-        loss = outputs.loss
-        loss.backward()
-        optimizer.step()
-        optimizer.zero_grad()
+            loss = outputs.loss
+            loss.backward()
+            optimizer.step()
+            optimizer.zero_grad()
 
+            batch_iterator.set_description(f"Loss: {loss.item():.4f}")
+
+        # Save checkpoint after each epoch
+        if save_dir is not None:
+            epoch_dir = os.path.join(save_dir, f"epoch_{epoch + 1}")
+            os.makedirs(epoch_dir, exist_ok=True)
+            model.save_pretrained(epoch_dir)
+            tokenizer.save_pretrained(epoch_dir)  # Save tokenizer with each checkpoint
+            print(f"Saved checkpoint to {epoch_dir}")
+
+    # Save final model
     if save_dir is not None:
-        model.save_pretrained(save_dir)
+        final_dir = os.path.join(save_dir, "final")
+        os.makedirs(final_dir, exist_ok=True)
+        model.save_pretrained(final_dir)
+        tokenizer.save_pretrained(final_dir)
 
 def eval(model_path, eval_texts):
     perplexity = evaluate.load("perplexity", module_type="metric")
@@ -73,8 +89,8 @@ if __name__ == "__main__":
     INDEX = sys.argv[1] 
     random.seed(INDEX)
 
-    REF_PATH = f'/nlp/u/salzhu/blackbox-model-tracing/train_references/tiny_ref_model_{INDEX}'
-    DF_PATH = f'/nlp/u/salzhu/blackbox-model-tracing/train_references/tinystories_refmodels_{INDEX}.csv'
+    REF_PATH = f'/nlp/u/rohithk/blackbox-model-tracing-results/tiny_ref_model_{INDEX}'
+    DF_PATH = f'/nlp/u/rohithk/blackbox-model-tracing-results/tiny_ref_pplx_{INDEX}.csv'
 
     if os.path.exists(DF_PATH):
         df = pd.read_csv(DF_PATH)
@@ -85,7 +101,6 @@ if __name__ == "__main__":
 
     tokenizer = AutoTokenizer.from_pretrained("huggyllama/llama-7b")
     tokenizer.pad_token = tokenizer.eos_token
-    tokenizer.save_pretrained(REF_PATH)
 
     config = LlamaConfig(
         vocab_size=tokenizer.vocab_size,
@@ -111,7 +126,8 @@ if __name__ == "__main__":
         shuffled_texts = [texts[i] for i in shuffle_order]
     
         train_tiny(shuffled_texts, config, tokenizer, REF_PATH)
-        pplx = eval(REF_PATH, texts)
+        pplx = eval(os.path.join(REF_PATH, "final"), texts)
         df[f'pplx-{i}'] = pplx
+        df[f'order-{i}'] = shuffle_order
 
         df.to_csv(DF_PATH)
