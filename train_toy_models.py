@@ -29,11 +29,11 @@ N = 20
 N_TRAIN_SAMPLES = 100000
 EPOCHS = 10
 
-def train_tiny(train_texts, config, tokenizer, save_dir):
+def train_tiny(train_texts, config, tokenizer, save_dir, batch_size):
     model = LlamaForCausalLM(config)
 
     optimizer = torch.optim.AdamW(model.parameters(), lr=1e-5)
-    train_dataloader = DataLoader(train_texts, batch_size=100, shuffle=False) # assume train_texts is shuffled in desired order
+    train_dataloader = DataLoader(train_texts, batch_size=batch_size, shuffle=False) # assume train_texts is shuffled in desired order
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     model.to(device)
@@ -85,6 +85,7 @@ def eval(model_path, eval_texts):
 if __name__ == "__main__":
 
     INDEX = sys.argv[1] 
+    BATCH_SIZE = sys.argv[2]
     random.seed(INDEX)
 
     REF_PATH = f'/nlp/u/rohithk/blackbox-model-tracing/results/tiny_ref_model_{INDEX}'
@@ -123,7 +124,7 @@ if __name__ == "__main__":
 
         shuffled_texts = [texts[i] for i in shuffle_order]
     
-        train_tiny(shuffled_texts, config, tokenizer, REF_PATH)
+        train_tiny(shuffled_texts, config, tokenizer, REF_PATH, BATCH_SIZE)
         pplx = eval(os.path.join(REF_PATH, "final"), texts)
         df[f'pplx-{i}'] = pplx
         df[f'order-{i}'] = shuffle_order
