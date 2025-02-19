@@ -24,6 +24,7 @@ import evaluate
 import pandas as pd
 import os
 import sys
+import argparse
 
 N = 20
 N_TRAIN_SAMPLES = 100000
@@ -83,13 +84,16 @@ def eval(model_path, eval_texts):
     return pplx
 
 if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description='Train toy models with different data orderings')
+    parser.add_argument('--index', type=int, required=True, help='Index for random seed and file paths')
+    parser.add_argument('--batch_size', type=int, required=True, help='Training batch size')
+    
+    args = parser.parse_args()
+    
+    random.seed(args.index)
 
-    INDEX = sys.argv[1] 
-    BATCH_SIZE = sys.argv[2]
-    random.seed(INDEX)
-
-    REF_PATH = f'/nlp/u/rohithk/blackbox-model-tracing/results/tiny_ref_model_{INDEX}'
-    DF_PATH = f'/nlp/u/rohithk/blackbox-model-tracing/results/tiny_ref_pplx_{INDEX}.csv'
+    REF_PATH = f'/nlp/u/rohithk/blackbox-model-tracing/results/tiny_ref_model_{args.index}'
+    DF_PATH = f'/nlp/u/rohithk/blackbox-model-tracing/results/tiny_ref_pplx_{args.index}.csv'
 
     if os.path.exists(DF_PATH):
         df = pd.read_csv(DF_PATH)
@@ -124,7 +128,7 @@ if __name__ == "__main__":
 
         shuffled_texts = [texts[i] for i in shuffle_order]
     
-        train_tiny(shuffled_texts, config, tokenizer, REF_PATH, BATCH_SIZE)
+        train_tiny(shuffled_texts, config, tokenizer, REF_PATH, args.batch_size)
         pplx = eval(os.path.join(REF_PATH, "final"), texts)
         df[f'pplx-{i}'] = pplx
         df[f'order-{i}'] = shuffle_order
