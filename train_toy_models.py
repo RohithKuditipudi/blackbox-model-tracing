@@ -22,7 +22,6 @@ import random
 import numpy as np
 import evaluate
 import pandas as pd
-from tqdm import tqdm
 import os
 import sys
 
@@ -34,7 +33,7 @@ def train_tiny(train_texts, config, tokenizer, save_dir):
     model = LlamaForCausalLM(config)
 
     optimizer = torch.optim.AdamW(model.parameters(), lr=1e-5)
-    train_dataloader = DataLoader(train_texts, batch_size=1, shuffle=False) # assume train_texts is shuffled in desired order
+    train_dataloader = DataLoader(train_texts, batch_size=100, shuffle=False) # assume train_texts is shuffled in desired order
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     model.to(device)
@@ -43,9 +42,8 @@ def train_tiny(train_texts, config, tokenizer, save_dir):
 
     for epoch in range(EPOCHS):
         print(f"Epoch {epoch + 1}/{EPOCHS}")
-        batch_iterator = tqdm(train_dataloader)
-        
-        for batch in batch_iterator:
+
+        for batch in train_dataloader:
             inputs = tokenizer(batch, padding=True, truncation=True, return_tensors="pt")
             inputs = {k: v.to(device) for k, v in inputs.items()}
 
@@ -58,7 +56,7 @@ def train_tiny(train_texts, config, tokenizer, save_dir):
             optimizer.step()
             optimizer.zero_grad()
 
-            batch_iterator.set_description(f"Loss: {loss.item():.4f}")
+        print(f"Loss: {loss.item():.4f}")
 
         # Save checkpoint after each epoch
         if save_dir is not None:
@@ -89,8 +87,8 @@ if __name__ == "__main__":
     INDEX = sys.argv[1] 
     random.seed(INDEX)
 
-    REF_PATH = f'/nlp/u/rohithk/blackbox-model-tracing-results/tiny_ref_model_{INDEX}'
-    DF_PATH = f'/nlp/u/rohithk/blackbox-model-tracing-results/tiny_ref_pplx_{INDEX}.csv'
+    REF_PATH = f'/nlp/u/rohithk/blackbox-model-tracing/results/tiny_ref_model_{INDEX}'
+    DF_PATH = f'/nlp/u/rohithk/blackbox-model-tracing/results/tiny_ref_pplx_{INDEX}.csv'
 
     if os.path.exists(DF_PATH):
         df = pd.read_csv(DF_PATH)
