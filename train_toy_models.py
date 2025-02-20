@@ -43,7 +43,11 @@ def train_tiny(train_texts, config, tokenizer, save_dir, batch_size):
     for epoch in range(EPOCHS):
         print(f"Epoch {epoch + 1}/{EPOCHS}")
 
+        i = 0
         for batch in train_dataloader:
+            i += 1
+            if i % 100 == 0:
+                print(f"Batch {i}/{len(train_dataloader)}")
             inputs = tokenizer(batch, padding=True, truncation=True, return_tensors="pt")
             inputs = {k: v.to(device) for k, v in inputs.items()}
 
