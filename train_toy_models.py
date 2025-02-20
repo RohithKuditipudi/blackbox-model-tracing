@@ -15,7 +15,7 @@ Main function takes in a seed as input
 """
 
 import torch
-from torch.utils.data import Dataset, DataLoader
+from torch.utils.data import DataLoader
 from transformers import AutoTokenizer, LlamaForCausalLM, LlamaConfig
 from datasets import load_dataset
 import random
@@ -23,10 +23,9 @@ import numpy as np
 import evaluate
 import pandas as pd
 import os
-import sys
 import argparse
 
-N = 20
+
 N_TRAIN_SAMPLES = 100000
 EPOCHS = 10
 
@@ -74,12 +73,12 @@ def train_tiny(train_texts, config, tokenizer, save_dir, batch_size):
         model.save_pretrained(final_dir)
         tokenizer.save_pretrained(final_dir)
 
-def eval(model_path, eval_texts):
+def eval_tiny(model_path, eval_texts):
     perplexity = evaluate.load("perplexity", module_type="metric")
-    eval = perplexity.compute(model_id=model_path,
+    evals = perplexity.compute(model_id=model_path,
                                 add_start_token=True,
                                 predictions=eval_texts)
-    pplx = np.log(eval['perplexities'])
+    pplx = np.log(evals['perplexities'])
 
     return pplx
 
@@ -118,19 +117,16 @@ if __name__ == "__main__":
     texts = dataset["train"]["text"][:N_TRAIN_SAMPLES]
     texts = [item for item in texts if item != ""] # some sequences are bad
 
-    for i in range(N):
+    print(f"Training model...")
 
-        print(f"Training model {i}...")
+    shuffle_order = list(range(len(texts)))
+    random.shuffle(shuffle_order)
 
-        shuffle_order = list(range(len(texts)))
-        random.shuffle(shuffle_order)
-        df[f'order-{i}'] = shuffle_order
+    shuffled_texts = [texts[i] for i in shuffle_order]
 
-        shuffled_texts = [texts[i] for i in shuffle_order]
-    
-        train_tiny(shuffled_texts, config, tokenizer, REF_PATH, args.batch_size)
-        pplx = eval(os.path.join(REF_PATH, "final"), texts)
-        df[f'pplx-{i}'] = pplx
-        df[f'order-{i}'] = shuffle_order
+    train_tiny(shuffled_texts, config, tokenizer, REF_PATH, args.batch_size)
+    # pplx = eval_tiny(os.path.join(REF_PATH, "final"), texts)
+    # df[f'pplx'] = pplx
+    df[f'order'] = shuffle_order
 
-        df.to_csv(DF_PATH)
+    df.to_csv(DF_PATH)
