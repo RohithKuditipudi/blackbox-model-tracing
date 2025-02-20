@@ -26,8 +26,8 @@ import os
 import argparse
 
 
-N_TRAIN_SAMPLES = 100000
-EPOCHS = 10
+N_TRAIN_SAMPLES = 1000000
+EPOCHS = 1
 
 def train_tiny(train_texts, config, tokenizer, save_dir, batch_size):
     model = LlamaForCausalLM(config)
@@ -125,8 +125,8 @@ if __name__ == "__main__":
     shuffled_texts = [texts[i] for i in shuffle_order]
 
     train_tiny(shuffled_texts, config, tokenizer, REF_PATH, args.batch_size)
-    # pplx = eval_tiny(os.path.join(REF_PATH, "final"), texts)
-    # df[f'pplx'] = pplx
+    pplx = eval_tiny(os.path.join(REF_PATH, "final"), texts)
+    df[f'pplx'] = pplx
     df[f'order'] = shuffle_order
 
     df.to_csv(DF_PATH)
