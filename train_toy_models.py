@@ -29,35 +29,65 @@ import sys
 N = 20
 N_TRAIN_SAMPLES = 100000
 
-def train_tiny(train_texts, config, tokenizer, save_dir):
+def train_tiny(train_texts, config, tokenizer, save_dir, batch_size):
     model = LlamaForCausalLM(config)
 
     optimizer = torch.optim.AdamW(model.parameters(), lr=1e-5)
-    train_dataloader = DataLoader(train_texts, batch_size=1, shuffle=False) # assume train_texts is shuffled in desired order
+    train_dataloader = DataLoader(train_texts, batch_size=batch_size, shuffle=False) # assume train_texts is shuffled in desired order
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     model.to(device)
 
     model.train()
 
-    batch_iterator = tqdm(train_dataloader)
+    for epoch in range(EPOCHS):
+        print(f"Epoch {epoch + 1}/{EPOCHS}")
 
-    for batch in batch_iterator:
-        
-        inputs = tokenizer(batch, padding=True, truncation=True, return_tensors="pt")
-        inputs = {k: v.to(device) for k, v in inputs.items()}
+        i = 0
+        for batch in train_dataloader:
+            i += 1
+            if i % 100 == 0:
+                print(f"Batch {i}/{len(train_dataloader)}")
+            inputs = tokenizer(batch, padding=True, truncation=True, return_tensors="pt")
+            # print(i, torch.cuda.memory_summary() )
+            inputs = {k: v.to('cuda') for k, v in inputs.items()}
+            # inputs.to('device')
 
-        inputs['labels'] = inputs['input_ids'].clone()
+            inputs['labels'] = inputs['input_ids'].clone()
+            # inputs.to(device)
 
-        outputs = model(**inputs)
+            outputs = model(**inputs)
 
-        loss = outputs.loss
-        loss.backward()
-        optimizer.step()
-        optimizer.zero_grad()
+            loss = outputs.loss
+            loss.backward()
+            optimizer.step()
+            optimizer.zero_grad()
 
+            inputs = {k: v.to('cpu') for k, v in inputs.items()}
+            loss.to('cpu')
+            del inputs
+            del outputs
+
+            torch.cuda.empty_cache()
+
+        print(f"Loss: {loss.item():.4f}")
+
+        # Save checkpoint after each epoch
+        if save_dir is not None:
+            epoch_dir = os.path.join(save_dir, f"epoch_{epoch + 1}")
+            os.makedirs(epoch_dir, exist_ok=True)
+            model.save_pretrained(epoch_dir)
+            tokenizer.save_pretrained(epoch_dir)  # Save tokenizer with each checkpoint
+            print(f"Saved checkpoint to {epoch_dir}")
+
+    # Save final model
     if save_dir is not None:
-        model.save_pretrained(save_dir)
+        final_dir = os.path.join(save_dir, "final")
+        os.makedirs(final_dir, exist_ok=True)
+        model.save_pretrained(final_dir)
+        tokenizer.save_pretrained(final_dir)
+
+    del model
 
 def eval(model_path, eval_texts):
     perplexity = evaluate.load("perplexity", module_type="metric")
