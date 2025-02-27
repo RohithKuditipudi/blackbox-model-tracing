@@ -14,8 +14,8 @@ from train_toy_models import train_tiny, eval_tiny
 batch_sizes = [64, 32, 16, 8, 4, 2, 1]
 
 ORDER_PATH = '/nlp/u/rohithk/blackbox-model-tracing/results/tiny_ref_pplx_2.csv' # use the ordering from here
-REF_PATH = '/nlp/u/salzhu/blackbox-model-tracing/tinystories_rohith/batch_ablations'
-DF_PATH = '/nlp/u/salzhu/blackbox-model-tracing/tinystories_rohith/bs_pplx.csv'
+REF_PATH = '/nlp/u/rohithk/blackbox-model-tracing/tinystories_rohith/batch_ablations'
+DF_PATH = '/nlp/u/rohithk/blackbox-model-tracing/tinystories_rohith/bs_pplx.csv'
 N_TRAIN_SAMPLES = 100000
 N_EVAL_SAMPLES = 10000
 
