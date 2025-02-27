@@ -26,7 +26,7 @@ import os
 import sys
 
 N = 5
-N_TRAIN_SAMPLES = 100000
+N_TRAIN_SAMPLES = 10000
 EPOCHS = 1
 
 def train_tiny(train_texts, config, tokenizer, save_dir, batch_size):
@@ -90,12 +90,12 @@ def train_tiny(train_texts, config, tokenizer, save_dir, batch_size):
 
     del model
 
-def eval(model_path, eval_texts):
+def eval_tiny(model_path, eval_texts):
     perplexity = evaluate.load("perplexity", module_type="metric")
-    eval = perplexity.compute(model_id=model_path,
+    eval_result = perplexity.compute(model_id=model_path,
                                 add_start_token=True,
                                 predictions=eval_texts)
-    pplx = np.log(eval['perplexities'])
+    pplx = np.log(eval_result['perplexities'])
 
     return pplx
 
@@ -127,6 +127,7 @@ if __name__ == "__main__":
     )
 
     texts = dataset["train"]["text"][:N_TRAIN_SAMPLES]
+    # random.shuffle(texts)
     texts = [item for item in texts if item != ""] # some sequences are bad
 
     for i in range(N):
@@ -142,7 +143,7 @@ if __name__ == "__main__":
         shuffled_texts = [texts[i] for i in shuffle_order]
     
         train_tiny(shuffled_texts, config, tokenizer, REF_PATH, 10)
-        pplx = eval(REF_PATH, texts)
+        pplx = eval_tiny(REF_PATH, texts)
         df[f'pplx-{i}'] = pplx
 
         df.to_csv(DF_PATH)

@@ -13,7 +13,7 @@ from train_toy_models import train_tiny, eval_tiny
 
 batch_sizes = [64, 32, 16, 8, 4, 2, 1]
 
-ORDER_PATH = '/nlp/u/rohithk/blackbox-model-tracing/results/tiny_ref_pplx_2.csv' # use the ordering from here
+ORDER_PATH = '/nlp/u/rohithk/blackbox-model-tracing/results/tiny_ref_pplx_16.csv' # use the ordering from here
 REF_PATH = '/nlp/u/rohithk/blackbox-model-tracing/tinystories_rohith/batch_ablations'
 DF_PATH = '/nlp/u/rohithk/blackbox-model-tracing/tinystories_rohith/bs_pplx.csv'
 N_TRAIN_SAMPLES = 100000
@@ -50,6 +50,6 @@ for bs in batch_sizes:
     print(f'Training batch size {bs}...')
     save_path = os.path.join(REF_PATH, f'bs_{bs}')
     train_tiny(texts, config, tokenizer, save_path, bs)
-    pplx = eval_tiny(os.path.join(save_path, 'final'), texts[:N_EVAL_SAMPLES])
+    pplx = eval_tiny(os.path.join(save_path, 'epoch_1'), texts[:N_EVAL_SAMPLES])
     df[f'pplx-bs-{bs}'] = pplx
     df.to_csv(DF_PATH)
