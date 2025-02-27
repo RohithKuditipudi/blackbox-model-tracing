@@ -28,6 +28,7 @@ import sys
 
 N = 20
 N_TRAIN_SAMPLES = 100000
+EPOCHS = 1
 
 def train_tiny(train_texts, config, tokenizer, save_dir, batch_size):
     model = LlamaForCausalLM(config)
