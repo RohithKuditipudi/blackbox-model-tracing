@@ -22,12 +22,12 @@ import random
 import numpy as np
 import evaluate
 import pandas as pd
-from tqdm import tqdm
 import os
 import sys
 
-N = 20
+N = 5
 N_TRAIN_SAMPLES = 100000
+EPOCHS = 1
 
 def train_tiny(train_texts, config, tokenizer, save_dir, batch_size):
     model = LlamaForCausalLM(config)
@@ -103,8 +103,7 @@ if __name__ == "__main__":
     INDEX = sys.argv[1] 
     random.seed(INDEX)
 
-    REF_PATH = f'/nlp/u/salzhu/blackbox-model-tracing/train_references/tiny_ref_model_{INDEX}'
-    DF_PATH = f'/nlp/u/salzhu/blackbox-model-tracing/train_references/tinystories_refmodels_{INDEX}.csv'
+    DF_PATH = f'/nlp/u/rohithk/blackbox-model-tracing/train_references/tinystories_refmodels_{INDEX}.csv'
 
     if os.path.exists(DF_PATH):
         df = pd.read_csv(DF_PATH)
@@ -115,7 +114,6 @@ if __name__ == "__main__":
 
     tokenizer = AutoTokenizer.from_pretrained("huggyllama/llama-7b")
     tokenizer.pad_token = tokenizer.eos_token
-    tokenizer.save_pretrained(REF_PATH)
 
     config = LlamaConfig(
         vocab_size=tokenizer.vocab_size,
@@ -131,6 +129,8 @@ if __name__ == "__main__":
     texts = [item for item in texts if item != ""] # some sequences are bad
 
     for i in range(N):
+        REF_PATH = f'/nlp/u/rohithk/blackbox-model-tracing/train_references/tiny_ref_model_{INDEX}_{i}'
+        tokenizer.save_pretrained(REF_PATH)
 
         print(f"Training model {i}...")
 
@@ -140,7 +140,7 @@ if __name__ == "__main__":
 
         shuffled_texts = [texts[i] for i in shuffle_order]
     
-        train_tiny(shuffled_texts, config, tokenizer, REF_PATH)
+        train_tiny(shuffled_texts, config, tokenizer, REF_PATH, 10)
         pplx = eval(REF_PATH, texts)
         df[f'pplx-{i}'] = pplx
 
