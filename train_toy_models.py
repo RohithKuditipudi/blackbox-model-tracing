@@ -82,7 +82,8 @@ def train_tiny(train_texts, config, tokenizer, save_dir, batch_size):
 
     # Save final model
     if save_dir is not None:
-        final_dir = os.path.join(save_dir, "final")
+        # final_dir = os.path.join(save_dir, "final")
+        final_dir = save_dir
         os.makedirs(final_dir, exist_ok=True)
         model.save_pretrained(final_dir)
         tokenizer.save_pretrained(final_dir)
