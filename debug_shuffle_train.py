@@ -40,6 +40,8 @@ def train_tiny(train_texts, config, tokenizer, save_dir, batch_size=1, epochs=1,
             optimizer.zero_grad()
 
         model.save_pretrained(os.path.join(save_dir, f'epoch-{epoch}'))
+        tokenizer.save_pretrained(os.path.join(save_dir, f'epoch-{epoch}'))
+        
         if df is not None:
             pplx = eval(os.path.join(save_dir, f'epoch-{epoch}'), texts)
             df[f'pplx-{i}-epoch-{epoch}'] = pplx
