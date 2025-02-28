@@ -59,8 +59,8 @@ if __name__ == "__main__":
     INDEX = sys.argv[1] 
     random.seed(INDEX)
 
-    REF_PATH = f'/nlp/u/salzhu/blackbox-model-tracing/train_references/debug/tiny_ref_model_{INDEX}'
-    DF_PATH = f'/nlp/u/salzhu/blackbox-model-tracing/train_references/debug/tinystories_refmodels_{INDEX}.csv'
+    REF_PATH = f'/nlp/u/rohithk/blackbox-model-tracing/train_references/debug/tiny_ref_model_{INDEX}'
+    DF_PATH = f'/nlp/u/rohithk/blackbox-model-tracing/train_references/debug/tinystories_refmodels_{INDEX}.csv'
 
     if os.path.exists(DF_PATH):
         df = pd.read_csv(DF_PATH)
