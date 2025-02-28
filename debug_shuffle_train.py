@@ -11,15 +11,13 @@ import pandas as pd
 from tqdm import tqdm
 import os
 import sys
+import argparse
 
-N = 4
-N_TRAIN_SAMPLES = 100000
-
-def train_tiny(train_texts, config, tokenizer, save_dir):
+def train_tiny(train_texts, config, tokenizer, save_dir, batch_size=1):
     model = LlamaForCausalLM(config)
 
     optimizer = torch.optim.AdamW(model.parameters(), lr=1e-5)
-    train_dataloader = DataLoader(train_texts, batch_size=1, shuffle=False) # assume train_texts is shuffled in desired order
+    train_dataloader = DataLoader(train_texts, batch_size=batch_size, shuffle=False) # assume train_texts is shuffled in desired order
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     model.to(device)
@@ -55,12 +53,23 @@ def eval(model_path, eval_texts):
     return pplx
 
 if __name__ == "__main__":
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--index", type=int, default=0)
+    parser.add_argument("--n", type=int, default=4)
+    parser.add_argument("--n_train_samples", type=int, default=10000)
+    parser.add_argument("--batch_size", type=int, default=1)
+    parser.add_argument("--save_dir", type=str, default=None)
+    args = parser.parse_args()
 
-    INDEX = sys.argv[1] 
+    N = args.n
+    N_TRAIN_SAMPLES = args.n_train_samples
+
+    INDEX = args.index
     random.seed(INDEX)
 
-    REF_PATH = f'/nlp/u/rohithk/blackbox-model-tracing/train_references/debug/tiny_ref_model_{INDEX}'
-    DF_PATH = f'/nlp/u/rohithk/blackbox-model-tracing/train_references/debug/tinystories_refmodels_{INDEX}.csv'
+    SAVE_DIR = args.save_dir
+    REF_PATH = os.path.join(SAVE_DIR, f'tiny_ref_model_{INDEX}')
+    DF_PATH = os.path.join(SAVE_DIR, f'tinystories_refmodels_{INDEX}.csv')
 
     if os.path.exists(DF_PATH):
         df = pd.read_csv(DF_PATH)
@@ -97,7 +106,7 @@ if __name__ == "__main__":
 
         shuffled_texts = [texts[i] for i in shuffle_order]
     
-        train_tiny(shuffled_texts, config, tokenizer, REF_PATH)
+        train_tiny(shuffled_texts, config, tokenizer, REF_PATH, batch_size=args.batch_size)
         pplx = eval(REF_PATH, texts)
         df[f'pplx-{i}'] = pplx
 
