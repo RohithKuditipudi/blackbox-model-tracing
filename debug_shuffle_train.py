@@ -39,7 +39,7 @@ def train_tiny(train_texts, config, tokenizer, save_dir, batch_size=1, epochs=1)
             optimizer.step()
             optimizer.zero_grad()
 
-            model.save_pretrained(os.path.join(save_dir, f'epoch-{epoch}'))
+        model.save_pretrained(os.path.join(save_dir, f'epoch-{epoch}'))
     
     model.save_pretrained(save_dir)
 
