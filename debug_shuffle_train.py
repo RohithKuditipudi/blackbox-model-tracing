@@ -13,7 +13,7 @@ import os
 import sys
 import argparse
 
-def train_tiny(train_texts, config, tokenizer, save_dir, batch_size=1):
+def train_tiny(train_texts, config, tokenizer, save_dir, batch_size=1, epochs=1):
     model = LlamaForCausalLM(config)
 
     optimizer = torch.optim.AdamW(model.parameters(), lr=1e-5)
@@ -25,23 +25,23 @@ def train_tiny(train_texts, config, tokenizer, save_dir, batch_size=1):
     model.train()
 
     batch_iterator = tqdm(train_dataloader)
+    for epoch in range(epochs):
+        for batch in batch_iterator: 
+            inputs = tokenizer(batch, padding=True, truncation=True, return_tensors="pt")
+            inputs = {k: v.to(device) for k, v in inputs.items()}
 
-    for batch in batch_iterator:
-        
-        inputs = tokenizer(batch, padding=True, truncation=True, return_tensors="pt")
-        inputs = {k: v.to(device) for k, v in inputs.items()}
+            inputs['labels'] = inputs['input_ids'].clone()
 
-        inputs['labels'] = inputs['input_ids'].clone()
+            outputs = model(**inputs)
 
-        outputs = model(**inputs)
+            loss = outputs.loss
+            loss.backward()
+            optimizer.step()
+            optimizer.zero_grad()
 
-        loss = outputs.loss
-        loss.backward()
-        optimizer.step()
-        optimizer.zero_grad()
-
-    if save_dir is not None:
-        model.save_pretrained(save_dir)
+            model.save_pretrained(os.path.join(save_dir, f'epoch-{epoch}'))
+    
+    model.save_pretrained(save_dir)
 
 def eval(model_path, eval_texts):
     perplexity = evaluate.load("perplexity", module_type="metric")
@@ -59,6 +59,8 @@ if __name__ == "__main__":
     parser.add_argument("--n_train_samples", type=int, default=10000)
     parser.add_argument("--batch_size", type=int, default=1)
     parser.add_argument("--save_dir", type=str, default=None)
+    parser.add_argument("--epochs", type=int, default=1)
+
     args = parser.parse_args()
 
     N = args.n
@@ -106,7 +108,7 @@ if __name__ == "__main__":
 
         shuffled_texts = [texts[i] for i in shuffle_order]
     
-        train_tiny(shuffled_texts, config, tokenizer, REF_PATH, batch_size=args.batch_size)
+        train_tiny(shuffled_texts, config, tokenizer, REF_PATH, batch_size=args.batch_size, epochs=args.epochs)
         pplx = eval(REF_PATH, texts)
         df[f'pplx-{i}'] = pplx
 
