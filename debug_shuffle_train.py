@@ -24,8 +24,8 @@ def train_tiny(train_texts, config, tokenizer, save_dir, batch_size=1, epochs=1)
 
     model.train()
 
-    batch_iterator = tqdm(train_dataloader)
     for epoch in range(epochs):
+        batch_iterator = tqdm(train_dataloader)
         for batch in batch_iterator: 
             inputs = tokenizer(batch, padding=True, truncation=True, return_tensors="pt")
             inputs = {k: v.to(device) for k, v in inputs.items()}
