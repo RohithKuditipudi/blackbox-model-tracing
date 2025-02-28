@@ -42,8 +42,16 @@ def train_tiny(train_texts, config, tokenizer, save_dir):
         optimizer.step()
         optimizer.zero_grad()
 
+        inputs = {k: v.to('cpu') for k, v in inputs.items()}
+        loss.to('cpu')
+        del inputs
+        del outputs
+
+        torch.cuda.empty_cache()
+
     if save_dir is not None:
         model.save_pretrained(save_dir)
+    del model
 
 def eval(model_path, eval_texts):
     perplexity = evaluate.load("perplexity", module_type="metric")
