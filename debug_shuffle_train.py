@@ -13,7 +13,7 @@ import os
 import sys
 import argparse
 
-def train_tiny(train_texts, config, tokenizer, save_dir, batch_size=1, epochs=1):
+def train_tiny(train_texts, config, tokenizer, save_dir, batch_size=1, epochs=1, df=None, texts=None, df_path=None):
     model = LlamaForCausalLM(config)
 
     optimizer = torch.optim.AdamW(model.parameters(), lr=1e-5)
@@ -40,6 +40,10 @@ def train_tiny(train_texts, config, tokenizer, save_dir, batch_size=1, epochs=1)
             optimizer.zero_grad()
 
         model.save_pretrained(os.path.join(save_dir, f'epoch-{epoch}'))
+        if df is not None:
+            pplx = eval(os.path.join(save_dir, f'epoch-{epoch}'), texts)
+            df[f'pplx-{i}-epoch-{epoch}'] = pplx
+            df.to_csv(df_path)
     
     model.save_pretrained(save_dir)
 
@@ -108,7 +112,7 @@ if __name__ == "__main__":
 
         shuffled_texts = [texts[i] for i in shuffle_order]
     
-        train_tiny(shuffled_texts, config, tokenizer, REF_PATH, batch_size=args.batch_size, epochs=args.epochs)
+        train_tiny(shuffled_texts, config, tokenizer, REF_PATH, batch_size=args.batch_size, epochs=args.epochs,df=df,texts=texts,df_path=DF_PATH)
         pplx = eval(REF_PATH, texts)
         df[f'pplx-{i}'] = pplx
 
