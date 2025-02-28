@@ -13,7 +13,7 @@ import os
 import sys
 
 N = 4
-N_TRAIN_SAMPLES = 100000
+N_TRAIN_SAMPLES = 10000
 
 def train_tiny(train_texts, config, tokenizer, save_dir):
     model = LlamaForCausalLM(config)
