@@ -80,7 +80,7 @@ if __name__ == "__main__":
 
     SAVE_DIR = args.save_dir
     REF_PATH = os.path.join(SAVE_DIR, f'tiny_ref_model_{INDEX}')
-    DF_PATH = os.path.join(SAVE_DIR, f'tinystories_refmodels_{INDEX}.csv')
+    DF_PATH = os.path.join(REF_PATH, f'tinystories_{INDEX}.csv')
 
     df = pd.DataFrame({})
 
