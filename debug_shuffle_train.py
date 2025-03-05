@@ -82,10 +82,7 @@ if __name__ == "__main__":
     REF_PATH = os.path.join(SAVE_DIR, f'tiny_ref_model_{INDEX}')
     DF_PATH = os.path.join(SAVE_DIR, f'tinystories_refmodels_{INDEX}.csv')
 
-    if os.path.exists(DF_PATH):
-        df = pd.read_csv(DF_PATH)
-    else:
-        df = pd.DataFrame({})
+    df = pd.DataFrame({})
 
     dataset = load_dataset("roneneldan/TinyStories")
 
