@@ -13,11 +13,9 @@ import os
 import sys
 import argparse
 
-def train_tiny(train_texts, config, tokenizer, save_dir, batch_size=1, epochs=1, df=None, texts=None, df_path=None):
+def train_tiny(train_texts, config, tokenizer, save_dir, batch_size=1, epochs=1, df=None, texts=None):
     model = LlamaForCausalLM(config)
-
     optimizer = torch.optim.AdamW(model.parameters(), lr=1e-5)
-    train_dataloader = DataLoader(train_texts, batch_size=batch_size, shuffle=False) # assume train_texts is shuffled in desired order
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     model.to(device)
@@ -25,6 +23,12 @@ def train_tiny(train_texts, config, tokenizer, save_dir, batch_size=1, epochs=1,
     model.train()
 
     for epoch in range(epochs):
+        shuffle_order = list(range(len(texts)))
+        random.shuffle(shuffle_order)
+        if df is not None:
+            df[f'order-{i}-epoch-{epoch}'] = shuffle_order
+        shuffled_texts = [texts[i] for i in shuffle_order]
+        train_dataloader = DataLoader(shuffled_texts, batch_size=batch_size, shuffle=False) # assume train_texts is shuffled in desired order
         batch_iterator = tqdm(train_dataloader)
         for batch in batch_iterator: 
             inputs = tokenizer(batch, padding=True, truncation=True, return_tensors="pt")
@@ -45,7 +49,6 @@ def train_tiny(train_texts, config, tokenizer, save_dir, batch_size=1, epochs=1,
         if df is not None:
             pplx = eval_tiny(os.path.join(save_dir, f'epoch-{epoch}'), texts)
             df[f'pplx-{i}-epoch-{epoch}'] = pplx
-            df.to_csv(df_path)
     
     model.save_pretrained(save_dir)
 
@@ -106,15 +109,6 @@ if __name__ == "__main__":
     for i in range(N):
 
         print(f"Training model {i}...")
-
-        shuffle_order = list(range(len(texts)))
-        random.shuffle(shuffle_order)
-        df[f'order-{i}'] = shuffle_order
-
-        shuffled_texts = [texts[i] for i in shuffle_order]
     
-        train_tiny(shuffled_texts, config, tokenizer, REF_PATH, batch_size=args.batch_size, epochs=args.epochs,df=df,texts=texts,df_path=DF_PATH)
-        pplx = eval_tiny(REF_PATH, texts)
-        df[f'pplx-{i}'] = pplx
-
+        train_tiny(texts, config, tokenizer, REF_PATH, batch_size=args.batch_size, epochs=args.epochs,df=df,texts=texts)
         df.to_csv(DF_PATH)
