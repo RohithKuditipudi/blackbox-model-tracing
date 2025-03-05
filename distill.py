@@ -1,5 +1,5 @@
 import torch
-from torch.utils.data import Dataset, DataLoader
+from torch.utils.data import DataLoader
 
 from transformers import AutoTokenizer, LlamaForCausalLM, LlamaConfig
 from datasets import load_dataset
@@ -25,7 +25,7 @@ def distill_tiny(teacher_model, texts, config, tokenizer, save_dir, df, index,
     """
     student_model = LlamaForCausalLM(config)
     optimizer = torch.optim.AdamW(student_model.parameters(), lr=1e-5)
-    criterion = nn.KLDivLoss(reduction='batchmean')
+    criterion = torch.nn.KLDivLoss(reduction='batchmean')
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     student_model.to(device)
@@ -46,12 +46,12 @@ def distill_tiny(teacher_model, texts, config, tokenizer, save_dir, df, index,
             with torch.no_grad():
                 teacher_outputs = teacher_model(**inputs).logits
                 # print(teacher_outputs.shape)
-                soft_targets = nn.functional.softmax(teacher_outputs / temperature, dim=-1)
+                soft_targets = torch.nn.functional.softmax(teacher_outputs / temperature, dim=-1)
             
             # Get student predictions
             student_outputs = student_model(**inputs).logits
             # print(student_outputs.shape)
-            student_soft = nn.functional.log_softmax(student_outputs / temperature, dim=-1)
+            student_soft = torch.nn.functional.log_softmax(student_outputs / temperature, dim=-1)
             
             # Calculate distillation loss
             loss = criterion(student_soft, soft_targets) * (temperature ** 2)
@@ -62,10 +62,10 @@ def distill_tiny(teacher_model, texts, config, tokenizer, save_dir, df, index,
             optimizer.step()
         
         # Save checkpoint after each epoch
-        student_model.save_pretrained(os.path.join(save_dir, f'epoch-{epoch}'))
-        tokenizer.save_pretrained(os.path.join(save_dir, f'epoch-{epoch}'))
+        student_model.save_pretrained(os.path.join(save_dir, f'epoch-{epoch}-index-{index}'))
+        tokenizer.save_pretrained(os.path.join(save_dir, f'epoch-{epoch}-index-{index}'))
 
-        pplx = eval_tiny(os.path.join(save_dir, f'epoch-{epoch}'), texts)
+        pplx = eval_tiny(os.path.join(save_dir, f'epoch-{epoch}-index-{index}'), texts)
         df[f'pplx-{index}-epoch-{epoch}'] = pplx
 
 def eval_tiny(model_path, eval_texts):

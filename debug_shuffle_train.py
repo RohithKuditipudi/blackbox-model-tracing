@@ -1,7 +1,7 @@
 # I ran: python this_script 34
 
 import torch
-from torch.utils.data import Dataset, DataLoader
+from torch.utils.data import DataLoader
 
 from transformers import AutoTokenizer, LlamaForCausalLM, LlamaConfig
 from datasets import load_dataset
@@ -52,10 +52,10 @@ def train_tiny(texts, config, tokenizer, save_dir, df, index, batch_size=1, epoc
             optimizer.step()
             optimizer.zero_grad()
 
-        model.save_pretrained(os.path.join(save_dir, f'epoch-{epoch}'))
-        tokenizer.save_pretrained(os.path.join(save_dir, f'epoch-{epoch}'))
+        model.save_pretrained(os.path.join(save_dir, f'epoch-{epoch}-index-{index}'))
+        tokenizer.save_pretrained(os.path.join(save_dir, f'epoch-{epoch}-index-{index}'))
         
-        pplx = eval_tiny(os.path.join(save_dir, f'epoch-{epoch}'), texts)
+        pplx = eval_tiny(os.path.join(save_dir, f'epoch-{epoch}-index-{index}'), texts)
         df[f'pplx-{index}-epoch-{epoch}'] = pplx
 
 def eval_tiny(model_path, eval_texts):
