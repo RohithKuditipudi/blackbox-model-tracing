@@ -98,6 +98,8 @@ if __name__ == "__main__":
     SAVE_DIR = args.save_dir
     REF_PATH = os.path.join(SAVE_DIR, f'tiny_distilled_model_{args_hash}')
     DF_PATH = os.path.join(REF_PATH, f'tinystories.csv')
+
+    os.makedirs(REF_PATH, exist_ok=True)
     
     with open(os.path.join(REF_PATH, 'args.json'), 'w') as f:
         f.write(args_str)
