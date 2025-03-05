@@ -13,7 +13,7 @@ import os
 import sys
 import argparse
 
-def train_tiny(train_texts, config, tokenizer, save_dir, batch_size=1, epochs=1, df=None, texts=None):
+def train_tiny(texts, config, tokenizer, save_dir, df, index, batch_size=1, epochs=1):
     model = LlamaForCausalLM(config)
     optimizer = torch.optim.AdamW(model.parameters(), lr=1e-5)
 
@@ -25,11 +25,12 @@ def train_tiny(train_texts, config, tokenizer, save_dir, batch_size=1, epochs=1,
     for epoch in range(epochs):
         shuffle_order = list(range(len(texts)))
         random.shuffle(shuffle_order)
-        if df is not None:
-            df[f'order-{i}-epoch-{epoch}'] = shuffle_order
+        df[f'order-{index}-epoch-{epoch}'] = shuffle_order
         shuffled_texts = [texts[i] for i in shuffle_order]
+
         train_dataloader = DataLoader(shuffled_texts, batch_size=batch_size, shuffle=False) # assume train_texts is shuffled in desired order
         batch_iterator = tqdm(train_dataloader)
+
         for batch in batch_iterator: 
             inputs = tokenizer(batch, padding=True, truncation=True, return_tensors="pt")
             inputs = {k: v.to(device) for k, v in inputs.items()}
@@ -46,11 +47,8 @@ def train_tiny(train_texts, config, tokenizer, save_dir, batch_size=1, epochs=1,
         model.save_pretrained(os.path.join(save_dir, f'epoch-{epoch}'))
         tokenizer.save_pretrained(os.path.join(save_dir, f'epoch-{epoch}'))
         
-        if df is not None:
-            pplx = eval_tiny(os.path.join(save_dir, f'epoch-{epoch}'), texts)
-            df[f'pplx-{i}-epoch-{epoch}'] = pplx
-    
-    model.save_pretrained(save_dir)
+        pplx = eval_tiny(os.path.join(save_dir, f'epoch-{epoch}'), texts)
+        df[f'pplx-{index}-epoch-{epoch}'] = pplx
 
 def eval_tiny(model_path, eval_texts):
     perplexity = evaluate.load("perplexity", module_type="metric")
@@ -88,7 +86,6 @@ if __name__ == "__main__":
 
     tokenizer = AutoTokenizer.from_pretrained("huggyllama/llama-7b")
     tokenizer.pad_token = tokenizer.eos_token
-    tokenizer.save_pretrained(REF_PATH)
 
     config = LlamaConfig(
         vocab_size=tokenizer.vocab_size,
@@ -107,5 +104,5 @@ if __name__ == "__main__":
 
         print(f"Training model {i}...")
     
-        train_tiny(texts, config, tokenizer, REF_PATH, batch_size=args.batch_size, epochs=args.epochs,df=df,texts=texts)
+        train_tiny(texts, config, tokenizer, REF_PATH, df, i, batch_size=args.batch_size, epochs=args.epochs)
         df.to_csv(DF_PATH)
