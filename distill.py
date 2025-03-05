@@ -9,6 +9,12 @@ from datasets import load_dataset
 import evaluate
 import os
 import pandas as pd
+
+import subprocess
+
+def get_git_revision_hash() -> str:
+    return subprocess.check_output(['git', 'rev-parse', 'HEAD']).decode('ascii').strip()
+
 def distill_tiny(teacher_model, texts, config, tokenizer, save_dir, df, index,
                      batch_size=1, epochs=1, temperature=1.0):
     """

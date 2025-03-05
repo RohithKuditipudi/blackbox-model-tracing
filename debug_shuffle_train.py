@@ -13,6 +13,11 @@ import os
 import sys
 import argparse
 
+import subprocess
+
+def get_git_revision_hash() -> str:
+    return subprocess.check_output(['git', 'rev-parse', 'HEAD']).decode('ascii').strip()
+
 def train_tiny(texts, config, tokenizer, save_dir, df, index, batch_size=1, epochs=1):
     model = LlamaForCausalLM(config)
     optimizer = torch.optim.AdamW(model.parameters(), lr=1e-5)
@@ -100,9 +105,9 @@ if __name__ == "__main__":
     texts = dataset["train"]["text"][:N_TRAIN_SAMPLES]
     texts = [item for item in texts if item != ""]
 
-    for i in range(N):
+    for run_index in range(N):
 
-        print(f"Training model {i}...")
+        print(f"Training model {run_index}...")
     
-        train_tiny(texts, config, tokenizer, REF_PATH, df, i, batch_size=args.batch_size, epochs=args.epochs)
+        train_tiny(texts, config, tokenizer, REF_PATH, df, run_index, batch_size=args.batch_size, epochs=args.epochs)
         df.to_csv(DF_PATH)
