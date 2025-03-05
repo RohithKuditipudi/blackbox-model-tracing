@@ -2,17 +2,20 @@
 
 import torch
 from torch.utils.data import Dataset, DataLoader
+
 from transformers import AutoTokenizer, LlamaForCausalLM, LlamaConfig
 from datasets import load_dataset
-import random
-import numpy as np
 import evaluate
+
+import numpy as np
 import pandas as pd
 from tqdm import tqdm
-import os
-import sys
-import argparse
 
+import os
+import argparse
+import json
+import hashlib
+import random
 import subprocess
 
 def get_git_revision_hash() -> str:
@@ -75,6 +78,11 @@ if __name__ == "__main__":
 
     args = parser.parse_args()
 
+    args_dict = vars(args)
+    args_dict['git_commit'] = get_git_revision_hash()
+    args_str = json.dumps(args_dict, indent=2)
+    args_hash = hashlib.md5(args_str.encode()).hexdigest()[:8]
+
     N = args.n
     N_TRAIN_SAMPLES = args.n_train_samples
 
@@ -82,8 +90,11 @@ if __name__ == "__main__":
     random.seed(INDEX)
 
     SAVE_DIR = args.save_dir
-    REF_PATH = os.path.join(SAVE_DIR, f'tiny_ref_model_{INDEX}')
-    DF_PATH = os.path.join(REF_PATH, f'tinystories_{INDEX}.csv')
+    REF_PATH = os.path.join(SAVE_DIR, f'tiny_distilled_model_{args_hash}')
+    DF_PATH = os.path.join(REF_PATH, f'tinystories.csv')
+    
+    with open(os.path.join(REF_PATH, 'args.json'), 'w') as f:
+        f.write(args_str)
 
     df = pd.DataFrame({})
 

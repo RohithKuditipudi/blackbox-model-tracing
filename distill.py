@@ -1,15 +1,18 @@
 import torch
-import torch.nn as nn
-import numpy as np
-from torch.utils.data import DataLoader
-import argparse
-from tqdm import tqdm
-from transformers import LlamaForCausalLM, LlamaConfig, AutoTokenizer
+from torch.utils.data import Dataset, DataLoader
+
+from transformers import AutoTokenizer, LlamaForCausalLM, LlamaConfig
 from datasets import load_dataset
 import evaluate
-import os
-import pandas as pd
 
+import numpy as np
+import pandas as pd
+from tqdm import tqdm
+
+import os
+import argparse
+import json
+import hashlib
 import subprocess
 
 def get_git_revision_hash() -> str:
@@ -85,11 +88,19 @@ if __name__ == "__main__":
     
     args = parser.parse_args()
 
+    args_dict = vars(args)
+    args_dict['git_commit'] = get_git_revision_hash()
+    args_str = json.dumps(args_dict, indent=2)
+    args_hash = hashlib.md5(args_str.encode()).hexdigest()[:8]
+
     N_TRAIN_SAMPLES = args.n_train_samples
 
     SAVE_DIR = args.save_dir
-    REF_PATH = os.path.join(SAVE_DIR, f'tiny_distilled_model')
+    REF_PATH = os.path.join(SAVE_DIR, f'tiny_distilled_model_{args_hash}')
     DF_PATH = os.path.join(REF_PATH, f'tinystories.csv')
+    
+    with open(os.path.join(REF_PATH, 'args.json'), 'w') as f:
+        f.write(args_str)
 
     df = pd.DataFrame({})
 
