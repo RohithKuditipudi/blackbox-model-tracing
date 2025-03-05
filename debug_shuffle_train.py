@@ -43,18 +43,18 @@ def train_tiny(train_texts, config, tokenizer, save_dir, batch_size=1, epochs=1,
         tokenizer.save_pretrained(os.path.join(save_dir, f'epoch-{epoch}'))
         
         if df is not None:
-            pplx = eval(os.path.join(save_dir, f'epoch-{epoch}'), texts)
+            pplx = eval_tiny(os.path.join(save_dir, f'epoch-{epoch}'), texts)
             df[f'pplx-{i}-epoch-{epoch}'] = pplx
             df.to_csv(df_path)
     
     model.save_pretrained(save_dir)
 
-def eval(model_path, eval_texts):
+def eval_tiny(model_path, eval_texts):
     perplexity = evaluate.load("perplexity", module_type="metric")
-    eval = perplexity.compute(model_id=model_path,
+    result = perplexity.compute(model_id=model_path,
                                 add_start_token=True,
                                 predictions=eval_texts)
-    pplx = np.log(eval['perplexities'])
+    pplx = np.log(result['perplexities'])
 
     return pplx
 
@@ -101,7 +101,6 @@ if __name__ == "__main__":
     )
 
     texts = dataset["train"]["text"][:N_TRAIN_SAMPLES]
-    random.shuffle(texts) # CHANGE: shuffled here
     texts = [item for item in texts if item != ""]
 
     for i in range(N):
@@ -115,7 +114,7 @@ if __name__ == "__main__":
         shuffled_texts = [texts[i] for i in shuffle_order]
     
         train_tiny(shuffled_texts, config, tokenizer, REF_PATH, batch_size=args.batch_size, epochs=args.epochs,df=df,texts=texts,df_path=DF_PATH)
-        pplx = eval(REF_PATH, texts)
+        pplx = eval_tiny(REF_PATH, texts)
         df[f'pplx-{i}'] = pplx
 
         df.to_csv(DF_PATH)
