@@ -22,7 +22,7 @@ def distill_tiny(teacher_model, texts, config, tokenizer, save_dir, df, index,
     """
     student_model = LlamaForCausalLM(config)
     optimizer = torch.optim.AdamW(student_model.parameters(), lr=1e-5)
-    criterion = nn.KLDivLoss()
+    criterion = nn.KLDivLoss(reduction='batchmean')
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     student_model.to(device)
@@ -76,9 +76,9 @@ def eval_tiny(model_path, eval_texts):
     
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Knowledge Distillation')
-    parser.add_argument('--teacher-path', type=str, required=True, help='Path to teacher model checkpoint')
+    parser.add_argument('--teacher_path', type=str, required=True, help='Path to teacher model checkpoint')
     parser.add_argument('--epochs', type=int, default=1, help='Number of epochs')
-    parser.add_argument('--batch-size', type=int, default=1, help='Batch size')
+    parser.add_argument('--batch_size', type=int, default=1, help='Batch size')
     parser.add_argument('--temperature', type=float, default=1.0, help='Distillation temperature')
     parser.add_argument('--n_train_samples', type=int, default=10000, help='Number of training samples')
     parser.add_argument('--save_dir', type=str, required=True, help='Directory to save model')
