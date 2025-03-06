@@ -98,7 +98,7 @@ if __name__ == "__main__":
     random.seed(INDEX)
 
     SAVE_DIR = args.save_dir
-    REF_PATH = os.path.join(SAVE_DIR, f'tiny_distilled_model_{args_hash}')
+    REF_PATH = os.path.join(SAVE_DIR, f'tiny_ref_model_{args_hash}')
     DF_PATH = os.path.join(REF_PATH, f'tinystories.csv')
 
     os.makedirs(REF_PATH, exist_ok=True)
