@@ -90,7 +90,8 @@ if __name__ == "__main__":
     parser.add_argument('--epochs', type=int, default=1, help='Number of epochs')
     parser.add_argument('--batch_size', type=int, default=1, help='Batch size')
     parser.add_argument('--temperature', type=float, default=1.0, help='Distillation temperature')
-    parser.add_argument('--n_train_samples', type=int, default=10000, help='Number of training samples')
+    parser.add_argument('--n_train_samples', type=int, default=100000, help='Number of training samples')
+    parser.add_argument('--offset', type=int, default=10000, help='Offset')
     parser.add_argument('--save_dir', type=str, required=True, help='Directory to save model')
     
     args = parser.parse_args()
@@ -139,7 +140,7 @@ if __name__ == "__main__":
     
     # Prepare dataset
     dataset = load_dataset("roneneldan/TinyStories")
-    texts = dataset["train"]["text"][:N_TRAIN_SAMPLES]
+    texts = dataset["train"]["text"][args.offset:args.offset+N_TRAIN_SAMPLES]
     texts = [item for item in texts if item != ""]
     
     # Run distillation
