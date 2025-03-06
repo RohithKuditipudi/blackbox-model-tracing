@@ -86,7 +86,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Knowledge Distillation')
     parser.add_argument('--teacher_path', type=str, required=True, help='Path to teacher model checkpoint')
     parser.add_argument('--epochs', type=int, default=1, help='Number of epochs')
-    parser.add_argument('--batch_size', type=int, default=100, help='Batch size')
+    parser.add_argument('--batch_size', type=int, default=10, help='Batch size')
     parser.add_argument('--temperature', type=float, default=1.0, help='Distillation temperature')
     parser.add_argument('--n_train_samples', type=int, default=20000, help='Number of training samples')
     parser.add_argument('--offset', type=int, default=10000, help='Offset')
