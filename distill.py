@@ -46,16 +46,14 @@ def distill_tiny(teacher_model, texts, config, tokenizer, save_dir, df, index,
             # Get soft targets from teacher
             with torch.no_grad():
                 teacher_outputs = teacher_model(**inputs).logits
-                # print(teacher_outputs.shape)
                 soft_targets = torch.nn.functional.softmax(teacher_outputs / temperature, dim=-1)
             
             # Get student predictions
             student_outputs = student_model(**inputs).logits
-            # print(student_outputs.shape)
-            student_soft = torch.nn.functional.log_softmax(student_outputs / temperature, dim=-1)
+            # student_soft = torch.nn.functional.log_softmax(student_outputs / temperature, dim=-1)
             
             # Calculate distillation loss
-            loss = criterion(student_soft, soft_targets) * (temperature ** 2)
+            loss = criterion(student_outputs, soft_targets) * (temperature ** 2)
             
             # Backpropagation
             optimizer.zero_grad()
@@ -88,9 +86,9 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Knowledge Distillation')
     parser.add_argument('--teacher_path', type=str, required=True, help='Path to teacher model checkpoint')
     parser.add_argument('--epochs', type=int, default=1, help='Number of epochs')
-    parser.add_argument('--batch_size', type=int, default=1, help='Batch size')
+    parser.add_argument('--batch_size', type=int, default=100, help='Batch size')
     parser.add_argument('--temperature', type=float, default=1.0, help='Distillation temperature')
-    parser.add_argument('--n_train_samples', type=int, default=100000, help='Number of training samples')
+    parser.add_argument('--n_train_samples', type=int, default=20000, help='Number of training samples')
     parser.add_argument('--offset', type=int, default=10000, help='Offset')
     parser.add_argument('--save_dir', type=str, required=True, help='Directory to save model')
     
