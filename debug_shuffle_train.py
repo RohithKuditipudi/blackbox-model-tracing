@@ -6,6 +6,7 @@ from torch.utils.data import DataLoader
 from transformers import AutoTokenizer, LlamaForCausalLM, LlamaConfig
 from datasets import load_dataset
 import evaluate
+import wandb
 
 import numpy as np
 import pandas as pd
@@ -39,7 +40,7 @@ def train_tiny(texts, config, tokenizer, save_dir, df, index, batch_size=1, epoc
         train_dataloader = DataLoader(shuffled_texts, batch_size=batch_size, shuffle=False) # assume train_texts is shuffled in desired order
         batch_iterator = tqdm(train_dataloader)
 
-        for batch in batch_iterator: 
+        for batch_idx, batch in enumerate(batch_iterator): 
             inputs = tokenizer(batch, padding=True, truncation=True, return_tensors="pt")
             inputs = {k: v.to(device) for k, v in inputs.items()}
 
@@ -48,9 +49,16 @@ def train_tiny(texts, config, tokenizer, save_dir, df, index, batch_size=1, epoc
             outputs = model(**inputs)
 
             loss = outputs.loss
+
+            optimizer.zero_grad()
             loss.backward()
             optimizer.step()
-            optimizer.zero_grad()
+
+            wandb.log({
+                "batch_loss": loss.item(),
+                "batch": batch_idx + epoch * len(train_dataloader),
+                "epoch": epoch,
+            })
 
         model.save_pretrained(os.path.join(save_dir, f'epoch-{epoch}-index-{index}'))
         tokenizer.save_pretrained(os.path.join(save_dir, f'epoch-{epoch}-index-{index}'))
@@ -97,6 +105,12 @@ if __name__ == "__main__":
     
     with open(os.path.join(REF_PATH, 'args.json'), 'w') as f:
         f.write(args_str)
+
+    wandb.init(
+        project="blackbox-model-tracing",
+        config=args_dict,
+        name=f"debug_shuffle_train_{args_hash}",
+    )
 
     df = pd.DataFrame({})
 

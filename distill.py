@@ -4,6 +4,7 @@ from torch.utils.data import DataLoader
 from transformers import AutoTokenizer, LlamaForCausalLM, LlamaConfig
 from datasets import load_dataset
 import evaluate
+import wandb
 
 import numpy as np
 import pandas as pd
@@ -38,7 +39,7 @@ def distill_tiny(teacher_model, texts, config, tokenizer, save_dir, df, index,
         train_dataloader = DataLoader(texts, batch_size=batch_size, shuffle=True)
         batch_iterator = tqdm(train_dataloader)
         
-        for batch in batch_iterator:
+        for batch_idx, batch in enumerate(batch_iterator):
             inputs = tokenizer(batch, padding=True, truncation=True, return_tensors="pt")
             inputs = {k: v.to(device) for k, v in inputs.items()}
             
@@ -60,6 +61,12 @@ def distill_tiny(teacher_model, texts, config, tokenizer, save_dir, df, index,
             optimizer.zero_grad()
             loss.backward()
             optimizer.step()
+
+            wandb.log({
+                "batch_loss": loss.item(),
+                "batch": batch_idx + epoch * len(train_dataloader),
+                "epoch": epoch,
+            })
         
         # Save checkpoint after each epoch
         student_model.save_pretrained(os.path.join(save_dir, f'epoch-{epoch}-index-{index}'))
@@ -103,6 +110,12 @@ if __name__ == "__main__":
     
     with open(os.path.join(REF_PATH, 'args.json'), 'w') as f:
         f.write(args_str)
+    
+    wandb.init(
+        project="blackbox-model-tracing",
+        config=args_dict,
+        name=f"distill_{args_hash}",
+    )
 
     df = pd.DataFrame({})
 
