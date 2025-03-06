@@ -26,7 +26,7 @@ def distill_tiny(teacher_model, texts, config, tokenizer, save_dir, df, index,
     """
     student_model = LlamaForCausalLM(config)
     optimizer = torch.optim.AdamW(student_model.parameters(), lr=1e-5)
-    criterion = torch.nn.KLDivLoss(reduction='batchmean')
+    criterion = torch.nn.CrossEntropyLoss()
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     student_model.to(device)
@@ -50,10 +50,9 @@ def distill_tiny(teacher_model, texts, config, tokenizer, save_dir, df, index,
             
             # Get student predictions
             student_outputs = student_model(**inputs).logits
-            # student_soft = torch.nn.functional.log_softmax(student_outputs / temperature, dim=-1)
             
             # Calculate distillation loss
-            loss = criterion(student_outputs, soft_targets) * (temperature ** 2)
+            loss = criterion(student_outputs, soft_targets)
             
             # Backpropagation
             optimizer.zero_grad()
