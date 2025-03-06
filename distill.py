@@ -52,7 +52,7 @@ def distill_tiny(teacher_model, texts, config, tokenizer, save_dir, df, index,
             student_outputs = student_model(**inputs).logits
             
             # Calculate distillation loss
-            loss = criterion(student_outputs, soft_targets)
+            loss = criterion(student_outputs.transpose(1, 2), soft_targets.transpose(1, 2))
             
             # Backpropagation
             optimizer.zero_grad()
