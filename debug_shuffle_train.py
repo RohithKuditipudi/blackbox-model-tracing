@@ -22,7 +22,7 @@ import subprocess
 def get_git_revision_hash() -> str:
     return subprocess.check_output(['git', 'rev-parse', 'HEAD']).decode('ascii').strip()
 
-def train_tiny(texts, config, tokenizer, save_dir, df, index, batch_size=1, epochs=1):
+def train_tiny(texts, config, tokenizer, save_dir, df, index, df_path, batch_size=1, epochs=1):
     model = LlamaForCausalLM(config)
     optimizer = torch.optim.AdamW(model.parameters(), lr=1e-5)
 
@@ -65,6 +65,7 @@ def train_tiny(texts, config, tokenizer, save_dir, df, index, batch_size=1, epoc
         
         pplx = eval_tiny(os.path.join(save_dir, f'epoch-{epoch}-index-{index}'), texts)
         df[f'pplx-{index}-epoch-{epoch}'] = pplx
+        df.to_csv(df_path)
 
 def eval_tiny(model_path, eval_texts):
     perplexity = evaluate.load("perplexity", module_type="metric")
@@ -136,5 +137,4 @@ if __name__ == "__main__":
 
         print(f"Training model {run_index}...")
     
-        train_tiny(texts, config, tokenizer, REF_PATH, df, run_index, batch_size=args.batch_size, epochs=args.epochs)
-        df.to_csv(DF_PATH)
+        train_tiny(texts, config, tokenizer, REF_PATH, df, run_index, DF_PATH, batch_size=args.batch_size, epochs=args.epochs)

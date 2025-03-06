@@ -19,7 +19,7 @@ import subprocess
 def get_git_revision_hash() -> str:
     return subprocess.check_output(['git', 'rev-parse', 'HEAD']).decode('ascii').strip()
 
-def distill_tiny(teacher_model, texts, config, tokenizer, save_dir, df, index,
+def distill_tiny(teacher_model, texts, config, tokenizer, save_dir, df, index, df_path,
                      batch_size=1, epochs=1, temperature=1.0):
     """
     Perform knowledge distillation training, similar to train_tiny
@@ -71,6 +71,7 @@ def distill_tiny(teacher_model, texts, config, tokenizer, save_dir, df, index,
 
         pplx = eval_tiny(os.path.join(save_dir, f'epoch-{epoch}-index-{index}'), texts)
         df[f'pplx-{index}-epoch-{epoch}'] = pplx
+        df.to_csv(df_path)
 
 def eval_tiny(model_path, eval_texts):
     perplexity = evaluate.load("perplexity", module_type="metric")
@@ -149,9 +150,8 @@ if __name__ == "__main__":
         save_dir=REF_PATH,
         df=df,
         index=0,
+        df_path=DF_PATH,
         batch_size=args.batch_size,
         epochs=args.epochs,
         temperature=args.temperature
     )
-
-    df.to_csv(DF_PATH)
