@@ -20,7 +20,7 @@ def get_git_revision_hash() -> str:
     return subprocess.check_output(['git', 'rev-parse', 'HEAD']).decode('ascii').strip()
 
 def distill_tiny(teacher_model, texts, config, tokenizer, save_dir, df, index, df_path,
-                     batch_size=1, epochs=1, temperature=1.0):
+                     batch_size=1, epochs=1, temperature=1.0, hard_targets=False):
     """
     Perform knowledge distillation training, similar to train_tiny
     """
@@ -46,13 +46,19 @@ def distill_tiny(teacher_model, texts, config, tokenizer, save_dir, df, index, d
             # Get soft targets from teacher
             with torch.no_grad():
                 teacher_outputs = teacher_model(**inputs).logits
-                soft_targets = torch.nn.functional.softmax(teacher_outputs / temperature, dim=-1)
+                if hard_targets:
+                    targets = torch.argmax(teacher_outputs, dim=-1)
+                else:
+                    targets = torch.nn.functional.softmax(teacher_outputs / temperature, dim=-1)
             
             # Get student predictions
             student_outputs = student_model(**inputs).logits
             
             # Calculate distillation loss
-            loss = criterion(student_outputs.transpose(1, 2), soft_targets.transpose(1, 2))
+            if hard_targets:
+                loss = criterion(student_outputs.transpose(1,2),targets)
+            else:
+                loss = criterion(student_outputs.transpose(1, 2), targets.transpose(1, 2))
             
             # Backpropagation
             optimizer.zero_grad()
@@ -91,7 +97,7 @@ if __name__ == "__main__":
     parser.add_argument('--n_train_samples', type=int, default=20000, help='Number of training samples')
     parser.add_argument('--offset', type=int, default=10000, help='Offset')
     parser.add_argument('--save_dir', type=str, required=True, help='Directory to save model')
-    
+    parser.add_argument('--hard_targets', action='store_true', help='Use hard targets')
     args = parser.parse_args()
 
     args_dict = vars(args)
@@ -153,5 +159,6 @@ if __name__ == "__main__":
         df_path=DF_PATH,
         batch_size=args.batch_size,
         epochs=args.epochs,
-        temperature=args.temperature
+        temperature=args.temperature,
+        hard_targets=args.hard_targets
     )
