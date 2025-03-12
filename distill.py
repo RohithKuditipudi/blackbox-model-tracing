@@ -20,7 +20,7 @@ def get_git_revision_hash() -> str:
     return subprocess.check_output(['git', 'rev-parse', 'HEAD']).decode('ascii').strip()
 
 def distill_tiny(teacher_model, texts, config, tokenizer, save_dir, df, index, df_path,
-                     batch_size=1, epochs=1, temperature=1.0, hard_targets=False):
+                     batch_size=1, epochs=1, temperature=1.0, hard_targets=False, eval_model=True):
     """
     Perform knowledge distillation training, similar to train_tiny
     """
@@ -75,8 +75,10 @@ def distill_tiny(teacher_model, texts, config, tokenizer, save_dir, df, index, d
         student_model.save_pretrained(os.path.join(save_dir, f'epoch-{epoch}-index-{index}'))
         tokenizer.save_pretrained(os.path.join(save_dir, f'epoch-{epoch}-index-{index}'))
 
-        pplx = eval_tiny(os.path.join(save_dir, f'epoch-{epoch}-index-{index}'), texts)
-        df[f'pplx-{index}-epoch-{epoch}'] = pplx
+        if eval_model:
+            pplx = eval_tiny(os.path.join(save_dir, f'epoch-{epoch}-index-{index}'), texts)
+            df[f'pplx-{index}-epoch-{epoch}'] = pplx
+
         df.to_csv(df_path)
 
 def eval_tiny(model_path, eval_texts):
@@ -98,6 +100,8 @@ if __name__ == "__main__":
     parser.add_argument('--offset', type=int, default=10000, help='Offset')
     parser.add_argument('--save_dir', type=str, required=True, help='Directory to save model')
     parser.add_argument('--hard_targets', action='store_true', help='Use hard targets')
+    parser.add_argument("--eval_model", action='store_true')
+    
     args = parser.parse_args()
 
     args_dict = vars(args)
@@ -160,5 +164,6 @@ if __name__ == "__main__":
         batch_size=args.batch_size,
         epochs=args.epochs,
         temperature=args.temperature,
-        hard_targets=args.hard_targets
+        hard_targets=args.hard_targets,
+        eval_model=args.eval_model
     )

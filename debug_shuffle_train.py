@@ -22,7 +22,7 @@ import subprocess
 def get_git_revision_hash() -> str:
     return subprocess.check_output(['git', 'rev-parse', 'HEAD']).decode('ascii').strip()
 
-def train_tiny(texts, config, tokenizer, save_dir, df, index, df_path, batch_size=1, epochs=1):
+def train_tiny(texts, config, tokenizer, save_dir, df, index, df_path, batch_size=1, epochs=1, eval_model=True):
     model = LlamaForCausalLM(config)
     optimizer = torch.optim.AdamW(model.parameters(), lr=1e-5)
 
@@ -63,8 +63,10 @@ def train_tiny(texts, config, tokenizer, save_dir, df, index, df_path, batch_siz
         model.save_pretrained(os.path.join(save_dir, f'epoch-{epoch}-index-{index}'))
         tokenizer.save_pretrained(os.path.join(save_dir, f'epoch-{epoch}-index-{index}'))
         
-        pplx = eval_tiny(os.path.join(save_dir, f'epoch-{epoch}-index-{index}'), texts)
-        df[f'pplx-{index}-epoch-{epoch}'] = pplx
+        if eval_model:
+            pplx = eval_tiny(os.path.join(save_dir, f'epoch-{epoch}-index-{index}'), texts)
+            df[f'pplx-{index}-epoch-{epoch}'] = pplx
+
         df.to_csv(df_path)
 
 def eval_tiny(model_path, eval_texts):
@@ -84,6 +86,7 @@ if __name__ == "__main__":
     parser.add_argument("--batch_size", type=int, default=1)
     parser.add_argument("--save_dir", type=str, default=None)
     parser.add_argument("--epochs", type=int, default=1)
+    parser.add_argument("--eval_model", action='store_true')
 
     args = parser.parse_args()
 
@@ -137,4 +140,15 @@ if __name__ == "__main__":
 
         print(f"Training model {run_index}...")
     
-        train_tiny(texts, config, tokenizer, REF_PATH, df, run_index, DF_PATH, batch_size=args.batch_size, epochs=args.epochs)
+        train_tiny(
+            texts, 
+            config, 
+            tokenizer, 
+            REF_PATH, 
+            df, 
+            run_index, 
+            DF_PATH, 
+            batch_size=args.batch_size, 
+            epochs=args.epochs, 
+            eval_model=args.eval_model
+        )
