@@ -16,11 +16,11 @@ def get_git_revision_hash() -> str:
 
 def index_tiny(texts, tokenizer, k, save_dir):
     index = defaultdict(list)
-    for i, text in enumerate(texts):
+    for idx, text in enumerate(texts):
         tokens = tokenizer.encode(text)
-        for i in range(len(tokens) - k + 1):
-            kgram = tuple(tokens[i:i+k])
-            index[kgram].append(i)
+        for pos in range(len(tokens) - k + 1):
+            kgram = tuple(tokens[pos:pos+k])
+            index[kgram].append(idx)
             
     index_file_path = os.path.join(save_dir, f'kgram_index_k{k}.pkl')
     
