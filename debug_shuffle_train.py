@@ -22,7 +22,7 @@ import subprocess
 def get_git_revision_hash() -> str:
     return subprocess.check_output(['git', 'rev-parse', 'HEAD']).decode('ascii').strip()
 
-def train_tiny(texts, config, tokenizer, save_dir, df, index, df_path, batch_size=1, epochs=1, eval_model=True):
+def train_tiny(texts, config, tokenizer, save_dir, df, index, df_path, batch_size=1, epochs=1, eval_model=True, reshuffle=False):
     model = LlamaForCausalLM(config)
     optimizer = torch.optim.AdamW(model.parameters(), lr=1e-5)
 
@@ -32,8 +32,9 @@ def train_tiny(texts, config, tokenizer, save_dir, df, index, df_path, batch_siz
     model.train()
 
     for epoch in range(epochs):
-        shuffle_order = list(range(len(texts)))
-        random.shuffle(shuffle_order)
+        if (epoch == 0) or reshuffle:
+            shuffle_order = list(range(len(texts)))
+            random.shuffle(shuffle_order)
         df[f'order-{index}-epoch-{epoch}'] = shuffle_order
         shuffled_texts = [texts[i] for i in shuffle_order]
 
@@ -87,6 +88,7 @@ if __name__ == "__main__":
     parser.add_argument("--save_dir", type=str, default=None)
     parser.add_argument("--epochs", type=int, default=1)
     parser.add_argument("--eval_model", action='store_true')
+    parser.add_argument("--reshuffle", action='store_true')
 
     args = parser.parse_args()
 
@@ -150,5 +152,6 @@ if __name__ == "__main__":
             DF_PATH, 
             batch_size=args.batch_size, 
             epochs=args.epochs, 
-            eval_model=args.eval_model
+            eval_model=args.eval_model,
+            reshuffle=args.reshuffle
         )
