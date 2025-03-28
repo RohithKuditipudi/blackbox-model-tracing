@@ -47,7 +47,10 @@ if __name__ == "__main__":
     args_dict = vars(args)
     args_dict['git_commit'] = get_git_revision_hash()
     args_str = json.dumps(args_dict, indent=2)
-    args_hash = hashlib.md5(args_str.encode()).hexdigest()[:8]
+
+    hash_dict = {k: v for k, v in args_dict.items() if k != 'k'}
+    hash_str = json.dumps(hash_dict, indent=2)  # Hash string without 'k'
+    args_hash = hashlib.md5(hash_str.encode()).hexdigest()[:8]
 
     N_TRAIN_SAMPLES = args.n_train_samples
 
