@@ -88,7 +88,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--teacher_path", type=str, required=True)
     parser.add_argument("--index", type=int, default=0)
-    parser.add_argument("--n", type=int, default=4)
+    parser.add_argument("--n", type=int, default=1)
     parser.add_argument("--n_train_samples", type=int, default=10000)
     parser.add_argument("--batch_size", type=int, default=1)
     parser.add_argument("--save_dir", type=str, default=None)
