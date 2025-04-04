@@ -14,19 +14,19 @@ import pickle
 def get_git_revision_hash() -> str:
     return subprocess.check_output(['git', 'rev-parse', 'HEAD']).decode('ascii').strip()
 
-def index_tiny(texts, tokenizer, k, save_dir):
+def index_tiny(texts, tokenizer, k_max, save_dir):
     index = defaultdict(list)
-    for idx, text in enumerate(texts):
-        tokens = tokenizer.encode(text)
-        for pos in range(len(tokens) - k):
-            kgram = tuple(tokens[pos:pos+k])
-            kgram_dict = {
-                "idx": idx,
-                "pos": pos,
-                "next_token": tokens[pos+k],
-            }
-            index[kgram].append(kgram_dict)
-
+    for k in range(1, k_max + 1):
+        for idx, text in enumerate(texts):
+            tokens = tokenizer.encode(text)
+            for pos in range(len(tokens) - k):
+                kgram = tuple(tokens[pos:pos+k])
+                kgram_dict = {
+                    "idx": idx,
+                    "pos": pos,
+                    "next_token": tokens[pos+k],
+                }
+                index[kgram].append(kgram_dict)
             
     index_file_path = os.path.join(save_dir, f'kgram_index_k{k}.pkl')
     
