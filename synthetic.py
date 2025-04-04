@@ -1,10 +1,8 @@
-# I ran: python this_script 34
-
 import torch
 from torch.utils.data import DataLoader
 
 from transformers import AutoTokenizer, LlamaForCausalLM, LlamaConfig
-from datasets import load_dataset
+from vllm import LLM, SamplingParams
 import evaluate
 import wandb
 
@@ -22,7 +20,20 @@ import subprocess
 def get_git_revision_hash() -> str:
     return subprocess.check_output(['git', 'rev-parse', 'HEAD']).decode('ascii').strip()
 
-def train_tiny(texts, config, tokenizer, save_dir, df, index, df_path, batch_size=1, epochs=1, eval_model=True, reshuffle=False):
+def generate_synthetic_data(model_path, n_samples, prompt="Write a short story:\n"):
+    """Generate synthetic text data using vLLM"""
+    llm = LLM(model=model_path)
+    sampling_params = SamplingParams(temperature=0.8, max_tokens=256)
+    
+    prompts = [prompt] * n_samples
+    outputs = llm.generate(prompts, sampling_params)
+    
+    generated_texts = [output.outputs[0].text for output in outputs]
+    return generated_texts
+
+
+def synthetic_tiny(texts, config, tokenizer, save_dir, df, index, df_path, batch_size=1, epochs=1, eval_model=True):
+    """Train on synthetic data, similar to train_tiny"""
     model = LlamaForCausalLM(config)
     optimizer = torch.optim.AdamW(model.parameters(), lr=1e-5)
 
@@ -32,16 +43,10 @@ def train_tiny(texts, config, tokenizer, save_dir, df, index, df_path, batch_siz
     model.train()
 
     for epoch in range(epochs):
-        if (epoch == 0) or reshuffle:
-            shuffle_order = list(range(len(texts)))
-            random.shuffle(shuffle_order)
-        df[f'order-{index}-epoch-{epoch}'] = shuffle_order
-        shuffled_texts = [texts[i] for i in shuffle_order]
-
-        train_dataloader = DataLoader(shuffled_texts, batch_size=batch_size, shuffle=False) # assume train_texts is shuffled in desired order
+        train_dataloader = DataLoader(texts, batch_size=batch_size, shuffle=False)
         batch_iterator = tqdm(train_dataloader)
 
-        for batch_idx, batch in enumerate(batch_iterator): 
+        for batch_idx, batch in enumerate(batch_iterator):
             inputs = tokenizer(batch, padding=True, truncation=True, return_tensors="pt")
             inputs = {k: v.to(device) for k, v in inputs.items()}
 
@@ -71,16 +76,17 @@ def train_tiny(texts, config, tokenizer, save_dir, df, index, df_path, batch_siz
         df.to_csv(df_path)
 
 def eval_tiny(model_path, eval_texts):
+    """Evaluate model using perplexity"""
     perplexity = evaluate.load("perplexity", module_type="metric")
     result = perplexity.compute(model_id=model_path,
-                                add_start_token=True,
-                                predictions=eval_texts)
+                               add_start_token=True,
+                               predictions=eval_texts)
     pplx = np.log(result['perplexities'])
-
     return pplx
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
+    parser.add_argument("--teacher_path", type=str, required=True)
     parser.add_argument("--index", type=int, default=0)
     parser.add_argument("--n", type=int, default=4)
     parser.add_argument("--n_train_samples", type=int, default=10000)
@@ -88,7 +94,7 @@ if __name__ == "__main__":
     parser.add_argument("--save_dir", type=str, default=None)
     parser.add_argument("--epochs", type=int, default=1)
     parser.add_argument("--eval_model", action='store_true')
-    parser.add_argument("--reshuffle", action='store_true')
+    parser.add_argument("--prompt", type=str, default="Write a short story:\n")
 
     args = parser.parse_args()
 
@@ -97,34 +103,30 @@ if __name__ == "__main__":
     args_str = json.dumps(args_dict, indent=2)
     args_hash = hashlib.md5(args_str.encode()).hexdigest()[:8]
 
-    N = args.n
     N_TRAIN_SAMPLES = args.n_train_samples
 
-    INDEX = args.index
-    random.seed(INDEX)
-
     SAVE_DIR = args.save_dir
-    REF_PATH = os.path.join(SAVE_DIR, f'tiny_ref_model_{args_hash}')
+    REF_PATH = os.path.join(SAVE_DIR, f'tiny_synth_model_{args_hash}')
     DF_PATH = os.path.join(REF_PATH, f'tinystories.csv')
 
     os.makedirs(REF_PATH, exist_ok=True)
     
     with open(os.path.join(REF_PATH, 'args.json'), 'w') as f:
         f.write(args_str)
-
+    
     wandb.init(
         project="blackbox-model-tracing",
         config=args_dict,
-        name=f"train_{args_hash}",
+        name=f"synthetic_{args_hash}",
     )
 
     df = pd.DataFrame({})
 
-    dataset = load_dataset("roneneldan/TinyStories")
-
-    tokenizer = AutoTokenizer.from_pretrained("huggyllama/llama-7b")
+    # Initialize tokenizer
+    tokenizer = AutoTokenizer.from_pretrained(args.teacher_path)
     tokenizer.pad_token = tokenizer.eos_token
 
+    # Define model config
     config = LlamaConfig(
         vocab_size=tokenizer.vocab_size,
         hidden_size=256,
@@ -135,23 +137,18 @@ if __name__ == "__main__":
         rms_norm_eps=1e-6,
     )
 
-    texts = dataset["train"]["text"][:N_TRAIN_SAMPLES]
-    texts = [item for item in texts if item != ""]
-
-    for run_index in range(N):
-
-        print(f"Training model {run_index}...")
+    texts = generate_synthetic_data(args.teacher_path, N_TRAIN_SAMPLES, args.prompt)
     
-        train_tiny(
-            texts, 
-            config, 
-            tokenizer, 
-            REF_PATH, 
-            df, 
-            run_index, 
-            DF_PATH, 
-            batch_size=args.batch_size, 
-            epochs=args.epochs, 
-            eval_model=args.eval_model,
-            reshuffle=args.reshuffle
-        )
+    # Run distillation
+    synthetic_tiny(
+        texts=texts,
+        config=config,
+        tokenizer=tokenizer,
+        save_dir=REF_PATH,
+        df=df,
+        index=0,
+        df_path=DF_PATH,
+        batch_size=args.batch_size,
+        epochs=args.epochs,
+        eval_model=args.eval_model
+    )
