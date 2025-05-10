@@ -56,7 +56,7 @@ def generate_and_correlate_text(prompts,llm,kgram_index,k,shuffle_order,sampling
     return full_results
 
 # computes a z-score: shuffles the training order 'reps' times and takes a z-score over the means 
-def generate_and_correlate_text_null(prompts,llm,kgram_index,k,shuffle_order,sampling_params, reps):
+def generate_and_correlate_text_zscore(prompts,llm,kgram_index,k,shuffle_order,sampling_params, reps):
     shuffle_order = copy.deepcopy(shuffle_order)
     generated = llm.generate(prompts,sampling_params) # uncomment if loading from the pickle
     full_results_unshuffled = []
@@ -89,7 +89,7 @@ def generate_and_correlate_text_null(prompts,llm,kgram_index,k,shuffle_order,sam
     return mean_unshuffled, means
 
 # computes the kolmogorov smirnov test, comparing the unshuffled indices with 'reps' shuffled indices
-def generate_and_correlate_text_dist(prompts,llm,kgram_index,k,shuffle_order,sampling_params, reps):
+def generate_and_correlate_text_ksdist(prompts,llm,kgram_index,k,shuffle_order,sampling_params, reps):
     shuffle_order = copy.deepcopy(shuffle_order)
     generated = llm.generate(prompts,sampling_params) # uncomment if loading from the pickle
     full_results_unshuffled = []
