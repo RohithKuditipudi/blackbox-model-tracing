@@ -116,4 +116,7 @@ def generate_and_correlate_text_ksdist(prompts,llm,kgram_index,k,shuffle_order,s
     print(full_others)
 
     # concatenate all the shuffled distributions --- maybe shouldn't do this
-    print(stats.ks_2samp(full_results_unshuffled, sum(full_others, [])))
+    print(f"original: {stats.ks_2samp(full_results_unshuffled, sum(full_others, []))}")
+
+    for j in range(reps):
+        print(f"shuffled {j}: {stats.ks_2samp(full_results_unshuffled, full_others[j])}")
