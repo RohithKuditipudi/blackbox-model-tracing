@@ -1,0 +1,23 @@
+[project]
+name = "tracing"
+version = "1.0.0"
+description = "Blackbox Model Tracing"
+readme = "README.md"
+requires-python = "==3.10"
+dependencies = [
+    "accelerate>=1.5.2",
+    "torch",
+    "tqdm>=4.67.1",
+    "transformers>=4.50.0",
+    "vllm==0.7.2",
+    "wandb>=0.19.8",
+    "xopen>=2.0.2",
+    "scipy",
+    "pickle",
+]
+
+[tool.setuptools.packages.find]
+include = ["tracing"]
+
+[tool.uv]
+package = true
