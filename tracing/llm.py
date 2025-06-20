@@ -133,12 +133,11 @@ def distill_model(
         tokenizer.save_pretrained(os.path.join(save_path, f'epoch-{epoch}'))
 
 
-def generate(prompts, model_path, sampling_params, prompt_template=None):
+def generate(prompts, model_path, sampling_params, prompt_template="{prompt}"):
     """Generate synthetic text data using vLLM"""
     llm = LLM(model=model_path)
-    sampling_params = SamplingParams(temperature=0.8, max_tokens=256)
     
-    prompts = [prompt_template.format(prompt) for prompt in prompts]
+    prompts = [prompt_template.format(prompt=prompt) for prompt in prompts]
     outputs = llm.generate(prompts, sampling_params)
     
     generated_texts = [output.outputs[0].text for output in outputs]
