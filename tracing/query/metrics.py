@@ -1,5 +1,8 @@
 import numpy as np
 import evaluate
+import torch
+from transformers import AutoTokenizer, AutoModelForCausalLM
+from tqdm import tqdm
 
 def eval_model(model_path, texts, metric):
     stats = metric(model_path,texts)
@@ -37,11 +40,13 @@ def get_pplx(sequences,
     tokenizer.padding_side = 'left'
     torch_dtype = torch.bfloat16
     
-    model = AutoModelForCausalLM.from_pretrained(model_id,
-                                                  low_cpu_mem_usage=True,
-                                                  device_map='auto',
-                                                  torch_dtype=torch_dtype,
-                                                  revision=revision)
+    model = AutoModelForCausalLM.from_pretrained(
+        model_id,
+        low_cpu_mem_usage=True,
+        device_map='auto',
+        torch_dtype=torch_dtype,
+        revision=revision
+    )
     model = model.eval()
     
     seq_to_pplx = {}

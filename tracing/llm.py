@@ -1,11 +1,53 @@
 import torch
-from transformers import LlamaForCausalLM
+from transformers import LlamaForCausalLM, AutoTokenizer
 from torch.utils.data import DataLoader
 from tqdm import tqdm
 import os
 import wandb
 import random
-from vllm import LLM, SamplingParams
+from vllm import LLM
+
+def evaluate_model(model_path, texts, prompts=None, metric=None, batch_size=1):
+    if prompts is None:
+        prompts = [""] * len(texts)
+    else:
+        assert len(texts) == len(prompts), "texts and prompts must have the same length"
+        
+    model = LlamaForCausalLM.from_pretrained(model_path)
+    tokenizer = AutoTokenizer.from_pretrained(model_path)
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    model.to(device)
+    model.eval()
+    
+    train_dataloader = DataLoader(texts, batch_size=batch_size, shuffle=False)
+    batch_iterator = tqdm(train_dataloader)
+
+    predictions = []
+    for batch_idx, batch in enumerate(batch_iterator):
+        inputs = tokenizer(batch, padding=True, truncation=True, return_tensors="pt")
+        inputs = {k: v.to(device) for k, v in inputs.items()}
+        
+        outputs = model(**inputs)
+        logits = outputs.logits[:, :-1, :]
+        next_tokens = inputs[:, 1:]
+        next_logits = torch.gather(logits, -1, next_tokens.unsqueeze(-1)).squeeze(-1)
+        predictions.append(next_logits)
+    
+    if metric is not None:
+        metrics = []
+        for text,prompt,prediction in zip(texts,prompts,predictions):
+            metrics.append(
+                metric(
+                    tokenizer.encode(text,truncation=True,return_tensors="pt"),
+                    prediction,
+                    tokenizer.encode(prompt,truncation=True,return_tensors="pt")
+                )
+            )
+    else:
+        metrics = None
+        
+    return predictions,metrics
+
 
 def train_model(
     texts, 
@@ -15,18 +57,25 @@ def train_model(
     index,
     batch_size=1, 
     epochs=1,
-    reshuffle=False
+    reshuffle=False,
+    load_path=None,
+    shuffle=True,
 ):
-    model = LlamaForCausalLM(config)
-    optimizer = torch.optim.AdamW(model.parameters(), lr=1e-5)
-
+    if load_path is None:
+        model = LlamaForCausalLM(config)
+    else:
+        model = LlamaForCausalLM.from_pretrained(load_path)
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     model.to(device)
-
     model.train()
 
+    optimizer = torch.optim.AdamW(model.parameters(), lr=1e-5)
+
     random.seed(index)
-    shuffle_orders = [random.shuffle(list(range(len(texts)))) for _ in range(epochs)]
+    if shuffle:
+        shuffle_orders = [random.shuffle(list(range(len(texts)))) for _ in range(epochs)]
+    else:
+        shuffle_orders = [list(range(len(texts))) for _ in range(epochs)]
 
     for epoch in range(epochs):
         if (epoch == 0) or reshuffle:
@@ -39,11 +88,9 @@ def train_model(
         for batch_idx, batch in enumerate(batch_iterator): 
             inputs = tokenizer(batch, padding=True, truncation=True, return_tensors="pt")
             inputs = {k: v.to(device) for k, v in inputs.items()}
-
             inputs['labels'] = inputs['input_ids'].clone()
 
             outputs = model(**inputs)
-
             loss = outputs.loss
 
             optimizer.zero_grad()
@@ -58,6 +105,8 @@ def train_model(
 
         model.save_pretrained(os.path.join(save_path, f'epoch-{epoch}'))
         tokenizer.save_pretrained(os.path.join(save_path, f'epoch-{epoch}'))
+    
+    return model, optimizer, shuffle_orders
 
 
 def distill_model(
@@ -81,7 +130,6 @@ def distill_model(
     criterion = torch.nn.CrossEntropyLoss()
 
     teacher_model = LlamaForCausalLM.from_pretrained(teacher_path)
-
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     student_model.to(device)
@@ -131,6 +179,8 @@ def distill_model(
         # Save checkpoint after each epoch
         student_model.save_pretrained(os.path.join(save_path, f'epoch-{epoch}'))
         tokenizer.save_pretrained(os.path.join(save_path, f'epoch-{epoch}'))
+    
+    return student_model, optimizer
 
 
 def generate(prompts, model_path, sampling_params, prompt_template="{prompt}"):

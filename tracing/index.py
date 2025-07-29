@@ -16,6 +16,9 @@ class DocumentIndex:
             "texts": texts,
             "order": order,
         }
+    
+    def get_training_steps(self, input_ids):
+        pass
 
 class NGramIndex:
     def __init__(self, tokenizer):
@@ -73,7 +76,7 @@ class SimpleNGramIndex(NGramIndex):
 class InfiniGramIndex(NGramIndex):
     def load_index(self, index_path, **index_kwargs):
         self.index = InfiniGramEngine(index_path, **index_kwargs)
-        self.num_docs = self.index.get_total_doc_cnt()
+        self.num_docs = self.index.get_total_doc_cnt() # TODO: make sure this is correct
 
     @timeout(0.01)
     def get_training_steps(self,input_ids):
