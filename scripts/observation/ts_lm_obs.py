@@ -41,7 +41,7 @@ def main():
     # Load tokenizer and config
     tokenizer = AutoTokenizer.from_pretrained("huggyllama/llama-7b")
     tokenizer.pad_token = tokenizer.eos_token
-    
+
     config = LlamaConfig(
         vocab_size=tokenizer.vocab_size,
         hidden_size=256,
@@ -105,7 +105,7 @@ def main():
     print("Generating samples from base model...")
     
     # Get first 100 texts from shuffled test set and truncate each to first 20 tokens
-    prompts = [tokenizer.decode(tokenizer.encode(text)[:20]) for text in random.sample(dataset["test"]["text"], k=100)]
+    prompts = [tokenizer.decode(tokenizer.encode(text)[:20]) for text in random.sample(list(dataset["validation"]["text"]), k=100)]
     
     # Configure sampling parameters
     sampling_params = {
