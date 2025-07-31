@@ -7,14 +7,12 @@ import wandb
 import random
 from vllm import LLM
 
-def evaluate_model(model_path, texts, prompts=None, metric=None, batch_size=1):
+def evaluate_model(model, tokenizer, texts, prompts=None, metric=None, batch_size=1):
     if prompts is None:
         prompts = [""] * len(texts)
     else:
         assert len(texts) == len(prompts), "texts and prompts must have the same length"
         
-    model = LlamaForCausalLM.from_pretrained(model_path)
-    tokenizer = AutoTokenizer.from_pretrained(model_path)
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     model.to(device)
     model.eval()
@@ -29,18 +27,21 @@ def evaluate_model(model_path, texts, prompts=None, metric=None, batch_size=1):
         
         outputs = model(**inputs)
         logits = outputs.logits[:, :-1, :]
-        next_tokens = inputs[:, 1:]
-        next_logits = torch.gather(logits, -1, next_tokens.unsqueeze(-1)).squeeze(-1)
-        predictions.append(next_logits)
+        logprobs = torch.nn.functional.log_softmax(logits, dim=-1)
+        next_tokens = inputs['input_ids'][:, 1:]
+        next_logprobs = torch.gather(logprobs, -1, next_tokens.unsqueeze(-1)).squeeze(-1)
+
+        for i in range(len(batch)):
+            predictions.append(next_logprobs[i][:inputs['attention_mask'][i,1:].sum()].cpu())
     
     if metric is not None:
         metrics = []
         for text,prompt,prediction in zip(texts,prompts,predictions):
             metrics.append(
                 metric(
-                    tokenizer.encode(text,truncation=True,return_tensors="pt"),
+                    tokenizer.encode(text,truncation=True,return_tensors="pt").squeeze(0),
                     prediction,
-                    tokenizer.encode(prompt,truncation=True,return_tensors="pt")
+                    tokenizer.encode(prompt,truncation=True,return_tensors="pt").squeeze(0)
                 )
             )
     else:
@@ -51,29 +52,29 @@ def evaluate_model(model_path, texts, prompts=None, metric=None, batch_size=1):
 
 def train_model(
     texts, 
-    config, 
     tokenizer, 
     save_path, 
     index,
     batch_size=1, 
     epochs=1,
     reshuffle=False,
-    load_path=None,
+    config=None,
+    model=None,
+    optimizer=None,
     shuffle=True,
 ):
-    if load_path is None:
+    if model is None:
         model = LlamaForCausalLM(config)
-    else:
-        model = LlamaForCausalLM.from_pretrained(load_path)
+    if optimizer is None:
+         optimizer = torch.optim.AdamW(model.parameters(), lr=1e-5)
+    
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     model.to(device)
     model.train()
 
-    optimizer = torch.optim.AdamW(model.parameters(), lr=1e-5)
-
     random.seed(index)
     if shuffle:
-        shuffle_orders = [random.shuffle(list(range(len(texts)))) for _ in range(epochs)]
+        shuffle_orders = [random.sample(list(range(len(texts))), len(texts)) for _ in range(epochs)]
     else:
         shuffle_orders = [list(range(len(texts))) for _ in range(epochs)]
 
@@ -110,7 +111,7 @@ def train_model(
 
 
 def distill_model(
-    teacher_path, 
+    teacher_model, 
     texts, 
     config, 
     tokenizer, 
@@ -128,8 +129,6 @@ def distill_model(
     student_model = LlamaForCausalLM(config)
     optimizer = torch.optim.AdamW(student_model.parameters(), lr=1e-5)
     criterion = torch.nn.CrossEntropyLoss()
-
-    teacher_model = LlamaForCausalLM.from_pretrained(teacher_path)
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     student_model.to(device)
