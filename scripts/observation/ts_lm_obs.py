@@ -40,6 +40,8 @@ def main():
 
     # Load tokenizer and config
     tokenizer = AutoTokenizer.from_pretrained("huggyllama/llama-7b")
+    tokenizer.pad_token = tokenizer.eos_token
+    
     config = LlamaConfig(
         vocab_size=tokenizer.vocab_size,
         hidden_size=256,
