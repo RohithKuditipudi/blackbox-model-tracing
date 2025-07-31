@@ -30,6 +30,10 @@ def main():
     dataset = load_dataset("roneneldan/TinyStories")
     texts = dataset["train"]["text"]
 
+    texts = dataset["train"]["text"]
+    texts = [item for item in texts if item != ""]
+
+
     # Shuffle the dataset
     random.seed(args.seed)
     random.shuffle(texts)
