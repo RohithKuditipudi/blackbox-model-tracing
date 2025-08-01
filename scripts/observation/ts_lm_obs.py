@@ -8,6 +8,7 @@ import torch
 import numpy as np
 import scipy as scp
 import time
+import shutil
 
 from tracing.llm import train_model, generate, evaluate_model
 from vllm import SamplingParams
@@ -28,6 +29,8 @@ def main():
     parser.add_argument("--seed", type=int, default=0)
     parser.add_argument("--num_partitions", type=int, default=10)
     parser.add_argument("--include_prompt", action="store_true", default=False)
+    parser.add_argument("--rerun_partitions", action="store_true", default=False)
+
     args = parser.parse_args()
 
     # Load dataset
@@ -136,6 +139,12 @@ def main():
     # Partition the shuffled dataset
     assert len(texts[args.n_partial:args.n_base]) % args.num_partitions == 0, "Number of texts to partition must be divisible by number of partitions"
     partition_size = len(texts[args.n_partial:args.n_base]) // args.num_partitions
+
+    if args.rerun_partitions:
+        for i in range(args.num_partitions):
+            partition_save_path = os.path.join(args.save_dir, f"partition_{i}")
+            if os.path.exists(partition_save_path):
+                shutil.rmtree(partition_save_path)
     
     # Fine-tune on each partition
     for i in range(args.num_partitions):
