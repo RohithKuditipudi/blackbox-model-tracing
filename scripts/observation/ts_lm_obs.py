@@ -10,6 +10,7 @@ import scipy as scp
 import time
 
 from tracing.llm import train_model, generate, evaluate_model
+from vllm import SamplingParams
 
 def experiment_metric(text, prediction, prompt):
     return sum(prediction[len(prompt):])
@@ -118,7 +119,7 @@ def main():
     generated_texts = generate(
         prompts=prompts,
         model_path=base_model_path,
-        sampling_params=sampling_params
+        sampling_params=SamplingParams(**sampling_params)
     )
 
     # Save generated texts
