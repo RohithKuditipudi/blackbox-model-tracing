@@ -12,6 +12,8 @@ import time
 from tracing.llm import train_model, generate, evaluate_model
 from vllm import SamplingParams
 
+import torch.distributed as dist
+
 def experiment_metric(text, prediction, prompt):
     return sum(prediction[len(prompt):]).item()
 
@@ -221,8 +223,8 @@ def main():
     print(".")
     print(scp.stats.spearmanr(partition_metrics, np.arange(len(partition_metrics))))
 
-
-
+    if dist.is_initialized():
+        dist.destroy_process_group()
 
 if __name__ == "__main__":
     main()
