@@ -7,6 +7,16 @@ import wandb
 import random
 from vllm import LLM
 
+def put(obj, device):
+    if isinstance(obj, torch.Tensor):
+        return obj.to(device)
+    elif isinstance(obj, dict):
+        return {k: put(v, device) for k, v in obj.items()}
+    elif isinstance(obj, list):
+        return [put(v, device) for v in obj]
+    else:
+        return obj
+
 def evaluate_model(model, tokenizer, texts, prompts=None, metric=None, batch_size=1):
     if prompts is None:
         prompts = [""] * len(texts)
@@ -72,6 +82,8 @@ def train_model(
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     model.to(device)
     model.train()
+    for k,v in optimizer.state.items():
+        optimizer.state[k] = put(v, device)
 
     random.seed(index)
     if shuffle:
