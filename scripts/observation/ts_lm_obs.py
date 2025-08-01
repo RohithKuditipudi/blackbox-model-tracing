@@ -13,7 +13,7 @@ from tracing.llm import train_model, generate, evaluate_model
 from vllm import SamplingParams
 
 def experiment_metric(text, prediction, prompt):
-    return sum(prediction[len(prompt):])
+    return sum(prediction[len(prompt):]).item()
 
 def main():
     parser = argparse.ArgumentParser()

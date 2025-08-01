@@ -21,18 +21,19 @@ def evaluate_model(model, tokenizer, texts, prompts=None, metric=None, batch_siz
     batch_iterator = tqdm(train_dataloader)
 
     predictions = []
-    for batch_idx, batch in enumerate(batch_iterator):
-        inputs = tokenizer(batch, padding=True, truncation=True, return_tensors="pt")
-        inputs = {k: v.to(device) for k, v in inputs.items()}
-        
-        outputs = model(**inputs)
-        logits = outputs.logits[:, :-1, :]
-        logprobs = torch.nn.functional.log_softmax(logits, dim=-1)
-        next_tokens = inputs['input_ids'][:, 1:]
-        next_logprobs = torch.gather(logprobs, -1, next_tokens.unsqueeze(-1)).squeeze(-1)
+    with torch.no_grad():
+        for batch_idx, batch in enumerate(batch_iterator):
+            inputs = tokenizer(batch, padding=True, truncation=True, return_tensors="pt")
+            inputs = {k: v.to(device) for k, v in inputs.items()}
+            
+            outputs = model(**inputs)
+            logits = outputs.logits[:, :-1, :]
+            logprobs = torch.nn.functional.log_softmax(logits, dim=-1)
+            next_tokens = inputs['input_ids'][:, 1:]
+            next_logprobs = torch.gather(logprobs, -1, next_tokens.unsqueeze(-1)).squeeze(-1)
 
-        for i in range(len(batch)):
-            predictions.append(next_logprobs[i][:inputs['attention_mask'][i,1:].sum()].cpu())
+            for i in range(len(batch)):
+                predictions.append(next_logprobs[i][:inputs['attention_mask'][i,1:].sum()].cpu())
     
     if metric is not None:
         metrics = []
