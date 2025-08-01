@@ -22,8 +22,9 @@ def main():
     parser.add_argument("--fine_tune", action="store_true", default=False)
     parser.add_argument("--save_dir", type=str, required=True)
     parser.add_argument("--batch_size", type=int, default=4)
-    parser.add_argument("--n1", type=int, default=1)
-    parser.add_argument("--n2", type=int, default=1)
+    parser.add_argument("--n_partial", type=int, default=1)
+    parser.add_argument("--n_base", type=int, default=1)
+    parser.add_argument("--n_samples", type=int, default=100)
     parser.add_argument("--seed", type=int, default=0)
     parser.add_argument("--num_partitions", type=int, default=10)
     parser.add_argument("--include_prompt", action="store_true", default=False)
@@ -66,7 +67,7 @@ def main():
         print("Training base model...")
         wandb.init(project="tinystories-training", name=f"base_model")
         partial_base_model, partial_optimizer, _ = train_model(
-            texts=texts[:args.n1],
+            texts=texts[:args.n_partial],
             config=config,
             tokenizer=tokenizer,
             save_path=partial_save_path,
@@ -92,7 +93,7 @@ def main():
         print("Training base model...")
         wandb.init(project="tinystories-training", name=f"base_model")
         _, _, _ = train_model(
-            texts=texts[args.n1:args.n2],
+            texts=texts[args.n_partial:args.n_base],
             model=partial_base_model,
             optimizer=partial_optimizer,
             tokenizer=tokenizer,
@@ -108,7 +109,7 @@ def main():
     print("Generating samples from base model...")
     
     # Get first 100 texts from shuffled test set and truncate each to first 20 tokens
-    prompts = [tokenizer.decode(tokenizer.encode(text)[:20]) for text in random.sample(list(dataset["validation"]["text"]), k=100)]
+    prompts = [tokenizer.decode(tokenizer.encode(text)[:20]) for text in random.sample(list(dataset["validation"]["text"]), k=args.n_samples)]
     
     # Configure sampling parameters
     sampling_params = {
@@ -133,8 +134,8 @@ def main():
     print(f"Saved {len(generated_texts)} samples to {samples_path}")
 
     # Partition the shuffled dataset
-    assert len(texts[args.n1:args.n2]) % args.num_partitions == 0, "Number of texts to partition must be divisible by number of partitions"
-    partition_size = len(texts[args.n1:args.n2]) // args.num_partitions
+    assert len(texts[args.n_partial:args.n_base]) % args.num_partitions == 0, "Number of texts to partition must be divisible by number of partitions"
+    partition_size = len(texts[args.n_partial:args.n_base]) // args.num_partitions
     
     # Fine-tune on each partition
     for i in range(args.num_partitions):
@@ -142,7 +143,7 @@ def main():
         
         start_idx = i * partition_size
         end_idx = start_idx + partition_size
-        partition_texts = texts[args.n1:args.n2][start_idx:end_idx]
+        partition_texts = texts[args.n_partial:args.n_base][start_idx:end_idx]
         
         partition_save_path = os.path.join(args.save_dir, f"partition_{i}")
         os.makedirs(partition_save_path, exist_ok=True)
