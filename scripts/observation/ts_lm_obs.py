@@ -27,9 +27,13 @@ def main():
     parser.add_argument("--n_partial", type=int, default=1)
     parser.add_argument("--n_base", type=int, default=1)
     parser.add_argument("--n_samples", type=int, default=100)
+    parser.add_argument("--n_epochs", type=int, default=1)
+    parser.add_argument("--shuffle_partition", action="store_true", default=False)
+    parser.add_argument("--temperature", type=float, default=0.7)
     parser.add_argument("--seed", type=int, default=0)
     parser.add_argument("--num_partitions", type=int, default=10)
     parser.add_argument("--include_prompt", action="store_true", default=False)
+    parser.add_argument("--prompt", type=str, default=None)
     parser.add_argument("--rerun_partitions", action="store_true", default=False)
 
     args = parser.parse_args()
@@ -112,14 +116,15 @@ def main():
     # Sample text from base model using prompts from dataset
     print("Generating samples from base model...")
     
-    # Get first 100 texts from shuffled test set and truncate each to first 20 tokens
-    prompts = [tokenizer.decode(tokenizer.encode(text)[:20]) for text in random.sample(list(dataset["validation"]["text"]), k=args.n_samples)]
+    if args.prompt is None:
+        # Get first 100 texts from shuffled test set and truncate each to first 20 tokens
+        prompts = [tokenizer.decode(tokenizer.encode(text)[:20]) for text in random.sample(list(dataset["validation"]["text"]), k=args.n_samples)]
+    else:
+        prompts = [args.prompt] * args.n_samples
     
     # Configure sampling parameters
     sampling_params = {
-        "temperature": 0.5,
-        "max_tokens": 100,
-        "top_p": 0.9,
+        "temperature": args.temperature,
     }
 
     # Generate completions using base model checkpoint
@@ -180,10 +185,11 @@ def main():
                 save_path=partition_save_path,
                 index=args.seed + i, # different seed for each partition
                 batch_size=args.batch_size,
-                epochs=1,
+                epochs=args.n_epochs,
                 model=model,
                 optimizer=optimizer,
-                shuffle=False,
+                shuffle=args.shuffle_partition,
+                reshuffle=True,
             )
             wandb.finish()
     
