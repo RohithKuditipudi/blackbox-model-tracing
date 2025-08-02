@@ -175,7 +175,7 @@ def main():
             model = None
             optimizer = None
         
-        partition_model_path = os.path.join(partition_save_path, f"epoch-{0}")
+        partition_model_path = os.path.join(partition_save_path, f"epoch-{args.n_epochs-1}")
         if not os.path.exists(partition_model_path):
             wandb.init(project="tinystories-training", name=f"partition_{i}")
             train_model(
@@ -216,7 +216,7 @@ def main():
         print(f"Evaluating partition model {i+1}/{args.num_partitions}")
         
         # Load partition model path
-        partition_model_path = os.path.join(args.save_dir, f"partition_{i}", f"epoch-{0}")
+        partition_model_path = os.path.join(args.save_dir, f"partition_{i}", f"epoch-{args.n_epochs-1}")
         
         # Get predictions using evaluate_model
         partition_model = LlamaForCausalLM.from_pretrained(partition_model_path)
