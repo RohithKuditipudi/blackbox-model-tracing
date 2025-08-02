@@ -9,6 +9,7 @@ import numpy as np
 import scipy as scp
 import time
 import shutil
+import pickle
 
 from tracing.llm import train_model, generate, evaluate_model
 from vllm import SamplingParams
@@ -232,6 +233,10 @@ def main():
     time.sleep(0.1) 
     print(".")
     print(scp.stats.spearmanr(partition_metrics, np.arange(len(partition_metrics))))
+
+    # Save partition metrics
+    with open(os.path.join(args.save_dir, "partition_metrics.pkl"), "wb") as f:
+        pickle.dump(partition_metrics, f)
 
     if dist.is_initialized():
         dist.destroy_process_group()
