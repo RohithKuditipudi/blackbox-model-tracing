@@ -40,7 +40,7 @@ def main():
     args = parser.parse_args()
 
     if args.which_partitions is not None:
-        partitions_to_train = [[int(x.strip()) for x in args.which_partitions.split(',')]]
+        partitions_to_train = [int(x.strip()) for x in args.which_partitions.split(',')]
     else:
         partitions_to_train = list(range(args.num_partitions))
 
