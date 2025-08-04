@@ -17,6 +17,8 @@ from vllm import SamplingParams
 import torch.distributed as dist
 
 def experiment_metric(text, prediction, prompt):
+    if len(text) <= len(prompt):
+        return 0.0
     return sum(prediction[len(prompt):]).item()
 
 def main():
