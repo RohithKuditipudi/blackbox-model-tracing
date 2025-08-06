@@ -195,9 +195,9 @@ def distill_model(
     return student_model, optimizer
 
 
-def generate(prompts, model_path, sampling_params, prompt_template="{prompt}"):
+def generate(prompts, model_path, sampling_params, seed=0, prompt_template="{prompt}"):
     """Generate synthetic text data using vLLM"""
-    llm = LLM(model=model_path)
+    llm = LLM(model=model_path, seed=seed)
     
     prompts = [prompt_template.format(prompt=prompt) for prompt in prompts]
     outputs = llm.generate(prompts, sampling_params)

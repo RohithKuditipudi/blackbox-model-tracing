@@ -3,7 +3,7 @@ import torch.distributed as dist
 
 def generate(prompts, model_path, sampling_params, prompt_template="{prompt}"):
     """Generate synthetic text data using vLLM"""
-    llm = LLM(model=model_path)
+    llm = LLM(model=model_path,seed=42)
     
     prompts = [prompt_template.format(prompt=prompt) for prompt in prompts]
     outputs = llm.generate(prompts, sampling_params)
