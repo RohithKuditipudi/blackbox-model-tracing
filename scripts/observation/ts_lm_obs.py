@@ -133,7 +133,8 @@ def main():
     generated_texts = generate(
         prompts=prompts,
         model_path=base_model_path,
-        sampling_params=SamplingParams(**sampling_params)
+        sampling_params=SamplingParams(**sampling_params),
+        seed=args.seed,
     )
 
     # Save generated texts
