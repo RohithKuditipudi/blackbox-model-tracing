@@ -13,7 +13,7 @@ def generate(prompts, model_path, sampling_params, prompt_template="{prompt}"):
 
 def main():
     prompts = [""] * 100
-    model_path = "../test-stuff-scale-2/base_model/epoch-0"
+    model_path = "../../test-stuff-scale-2/base_model/epoch-0"
     sampling_params = {"temperature": 1.0}
 
     generated_texts = generate(
