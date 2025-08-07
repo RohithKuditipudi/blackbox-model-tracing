@@ -37,6 +37,11 @@ def main():
     parser.add_argument("--include_prompt", action="store_true", default=False)
     parser.add_argument("--prompt", type=str, default=None)
     parser.add_argument("--rerun_partitions", action="store_true", default=False)
+    parser.add_argument("--hidden_size", type=int, default=256)
+    parser.add_argument("--intermediate_size", type=int, default=512)
+    parser.add_argument("--num_hidden_layers", type=int, default=4)
+    parser.add_argument("--num_attention_heads", type=int, default=8)
+    parser.add_argument("--max_position_embeddings", type=int, default=512)
 
     args = parser.parse_args()
 
@@ -58,11 +63,11 @@ def main():
 
     config = LlamaConfig(
         vocab_size=tokenizer.vocab_size,
-        hidden_size=256,
-        intermediate_size=512,
-        num_hidden_layers=4,
-        num_attention_heads=8,
-        max_position_embeddings=512,
+        hidden_size=args.hidden_size, # 256
+        intermediate_size=args.intermediate_size, # 512
+        num_hidden_layers=args.num_hidden_layers, # 4
+        num_attention_heads=args.num_attention_heads, # 8
+        max_position_embeddings=args.max_position_embeddings, # 512
         rms_norm_eps=1e-6,
     )
 
