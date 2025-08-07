@@ -233,6 +233,8 @@ def main():
         )
 
         partition_metrics.append(np.mean(metrics))
+
+        pickle.dump(predictions, open(os.path.join(args.save_dir, f"partition_{i}_predictions.pkl"), "wb"))
     
     print("P-VALUE INCOMING:")
     time.sleep(0.1)
