@@ -16,6 +16,72 @@ from vllm import SamplingParams
 
 import torch.distributed as dist
 
+def generate_and_evaluate_samples(base_model_path, tokenizer, prompts, args):
+    """Generate samples from base model and evaluate partition models"""
+    
+    # Configure sampling parameters
+    sampling_params = {
+        "temperature": args.temperature,
+    }
+
+    # Generate completions using base model checkpoint
+    print("Generating samples from base model...")
+    generated_texts = generate(
+        prompts=prompts,
+        model_path=base_model_path,
+        sampling_params=SamplingParams(**sampling_params),
+        seed=args.seed,
+    )
+
+    # Save generated texts
+    samples_path = os.path.join(args.save_dir, "base_model_samples.txt")
+    with open(samples_path, "w") as f:
+        for prompt, completion in zip(prompts, generated_texts):
+            f.write(f"PROMPT:\n{prompt}\n\nCOMPLETION:\n{completion}\n\n{'='*80}\n\n")
+    
+    print(f"Saved {len(generated_texts)} samples to {samples_path}")
+    
+    # Evaluate log likelihoods of partition models on base model samples
+    print("Evaluating partition models on base model samples...")
+
+    # Load the generated texts
+    with open(samples_path, "r") as f:
+        content = f.read().split("="*80)
+        samples = []
+        for entry in content:
+            if entry.strip():
+                parts = entry.split("COMPLETION:\n")
+                prompt = parts[0].split("PROMPT:\n")[1].strip() if "PROMPT:\n" in parts[0] else ""
+                completion = parts[1].strip()
+                if args.include_prompt:
+                    samples.append(prompt + completion)
+                else:
+                    samples.append(completion)
+
+    # Evaluate each partition model
+    partition_metrics = []
+    for i in range(args.num_partitions):
+        print(f"Evaluating partition model {i+1}/{args.num_partitions}")
+        
+        # Load partition model path
+        partition_model_path = os.path.join(args.save_dir, f"partition_{i}", f"epoch-{args.n_epochs-1}")
+        
+        # Get predictions using evaluate_model
+        partition_model = LlamaForCausalLM.from_pretrained(partition_model_path)
+        predictions, metrics = evaluate_model(
+            model=partition_model,
+            tokenizer=tokenizer,
+            texts=samples,
+            metric=experiment_metric,
+            prompts=prompts,
+            batch_size=args.batch_size
+        )
+
+        partition_metrics.append(np.mean(metrics))
+        pickle.dump(predictions, open(os.path.join(args.save_dir, f"partition_{i}_predictions.pkl"), "wb"))
+    
+    return partition_metrics, samples_path
+
 def experiment_metric(text, prediction, prompt):
     if len(text) <= len(prompt):
         return 0.0
@@ -42,6 +108,7 @@ def main():
     parser.add_argument("--num_hidden_layers", type=int, default=4)
     parser.add_argument("--num_attention_heads", type=int, default=8)
     parser.add_argument("--max_position_embeddings", type=int, default=512)
+    parser.add_argument("--ref_model_path", type=str, default=None)
 
     args = parser.parse_args()
 
@@ -120,36 +187,6 @@ def main():
         )
         wandb.finish()
 
-    # Sample text from base model using prompts from dataset
-    print("Generating samples from base model...")
-    
-    if args.prompt is None:
-        # Get first 100 texts from shuffled test set and truncate each to first 20 tokens
-        prompts = [tokenizer.decode(tokenizer.encode(text)[:20]) for text in random.sample(list(dataset["validation"]["text"]), k=args.n_samples)]
-    else:
-        prompts = [args.prompt] * args.n_samples
-    
-    # Configure sampling parameters
-    sampling_params = {
-        "temperature": args.temperature,
-    }
-
-    # Generate completions using base model checkpoint
-    generated_texts = generate(
-        prompts=prompts,
-        model_path=base_model_path,
-        sampling_params=SamplingParams(**sampling_params),
-        seed=args.seed,
-    )
-
-    # Save generated texts
-    samples_path = os.path.join(args.save_dir, "base_model_samples.txt")
-    with open(samples_path, "w") as f:
-        for prompt, completion in zip(prompts, generated_texts):
-            f.write(f"PROMPT:\n{prompt}\n\nCOMPLETION:\n{completion}\n\n{'='*80}\n\n")
-    
-    print(f"Saved {len(generated_texts)} samples to {samples_path}")
-
     # Partition the shuffled dataset
     assert len(texts[args.n_partial:args.n_base]) % args.num_partitions == 0, "Number of texts to partition must be divisible by number of partitions"
     partition_size = len(texts[args.n_partial:args.n_base]) // args.num_partitions
@@ -201,45 +238,22 @@ def main():
             )
             wandb.finish()
     
-    # Evaluate log likelihoods of partition models on base model samples
-    print("Evaluating partition models on base model samples...")
+    # Sample text from base model using prompts from dataset
+    print("Generating samples from base model...")
+    
+    if args.prompt is None:
+        # Get first 100 texts from shuffled test set and truncate each to first 20 tokens
+        prompts = [tokenizer.decode(tokenizer.encode(text)[:20]) for text in random.sample(list(dataset["validation"]["text"]), k=args.n_samples)]
+    else:
+        prompts = [args.prompt] * args.n_samples
+    
+    partition_metrics, samples_path = generate_and_evaluate_samples(base_model_path, tokenizer, prompts, args)
+    if args.ref_model_path is not None:
+        ref_partition_metrics, _ = generate_and_evaluate_samples(args.ref_model_path, tokenizer, prompts, args)
+        slope, intercept, _, _, _ = scp.stats.linregress(ref_partition_metrics, partition_metrics)
 
-    # Load the generated texts
-    with open(samples_path, "r") as f:
-        content = f.read().split("="*80)
-        samples = []
-        for entry in content:
-            if entry.strip():
-                parts = entry.split("COMPLETION:\n")
-                prompt = parts[0].split("PROMPT:\n")[1].strip() if "PROMPT:\n" in parts[0] else ""
-                completion = parts[1].strip()
-                if args.include_prompt:
-                    samples.append(prompt + completion)
-                else:
-                    samples.append(completion)
-
-    # Evaluate each partition model
-    partition_metrics = []
-    for i in range(args.num_partitions):
-        print(f"Evaluating partition model {i+1}/{args.num_partitions}")
-        
-        # Load partition model path
-        partition_model_path = os.path.join(args.save_dir, f"partition_{i}", f"epoch-{args.n_epochs-1}")
-        
-        # Get predictions using evaluate_model
-        partition_model = LlamaForCausalLM.from_pretrained(partition_model_path)
-        predictions, metrics = evaluate_model(
-            model=partition_model,
-            tokenizer=tokenizer,
-            texts=samples,
-            metric=experiment_metric,
-            prompts=prompts,
-            batch_size=args.batch_size
-        )
-
-        partition_metrics.append(np.mean(metrics))
-
-        pickle.dump(predictions, open(os.path.join(args.save_dir, f"partition_{i}_predictions.pkl"), "wb"))
+        # Subtract off the best fit line
+        partition_metrics = np.array(partition_metrics) - (slope * np.array(ref_partition_metrics) + intercept)
     
     print("P-VALUE INCOMING:")
     time.sleep(0.1)
