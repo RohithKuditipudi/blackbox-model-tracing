@@ -103,6 +103,7 @@ def main():
     parser.add_argument("--include_prompt", action="store_true", default=False)
     parser.add_argument("--prompt", type=str, default=None)
     parser.add_argument("--rerun_shuffles", action="store_true", default=False)
+    parser.add_argument("--rerun_base", action="store_true", default=False)
     parser.add_argument("--n_retrain", type=int, default=1)
     parser.add_argument("--hidden_size", type=int, default=256)
     parser.add_argument("--intermediate_size", type=int, default=512)
@@ -172,7 +173,7 @@ def main():
     base_save_path = os.path.join(args.save_dir, "base_model")
     os.makedirs(base_save_path, exist_ok=True)
     base_model_path = os.path.join(base_save_path, f"epoch-{0}")
-    if not os.path.exists(base_model_path):
+    if not os.path.exists(base_model_path) or args.rerun_base:
         # Train base model on shuffled full dataset
         print("Training base model...")
         wandb.init(project="tinystories-training", name=f"base_model")
