@@ -200,7 +200,7 @@ def main():
     for i in range(args.num_shuffles):
         print(f"Fine-tuning on shuffle {i+1}/{args.num_shuffles}")
         
-        retrain_texts = texts[args.n_partial:args.n_base][:args.n_retrain]
+        retrain_texts = texts[:args.n_partial][-args.n_retrain:]
         
         shuffle_save_path = os.path.join(args.save_dir, f"shuffle_{i}")
         os.makedirs(shuffle_save_path, exist_ok=True)
