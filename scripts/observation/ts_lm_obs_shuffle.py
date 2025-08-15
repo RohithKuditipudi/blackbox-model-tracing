@@ -94,7 +94,7 @@ def main():
     parser.add_argument("--save_dir", type=str, required=True)
     parser.add_argument("--batch_size", type=int, default=4)
     parser.add_argument("--n_partial", type=int, default=1)
-    parser.add_argument("--n_base", type=int, default=1)
+    parser.add_argument("--n_finetune", type=int, default=1)
     parser.add_argument("--n_samples", type=int, default=100)
     parser.add_argument("--n_epochs", type=int, default=1)
     parser.add_argument("--temperature", type=float, default=0.7)
@@ -103,7 +103,7 @@ def main():
     parser.add_argument("--include_prompt", action="store_true", default=False)
     parser.add_argument("--prompt", type=str, default=None)
     parser.add_argument("--rerun_shuffles", action="store_true", default=False)
-    parser.add_argument("--rerun_base", action="store_true", default=False)
+    parser.add_argument("--rerun_finetune", action="store_true", default=False)
     parser.add_argument("--n_retrain", type=int, default=1)
     parser.add_argument("--hidden_size", type=int, default=256)
     parser.add_argument("--intermediate_size", type=int, default=512)
@@ -114,6 +114,8 @@ def main():
     parser.add_argument("--max_tokens", type=int, default=32)
 
     args = parser.parse_args()
+
+    args.n_base = args.n_partial + args.n_retrain
 
     # Load dataset
     dataset = load_dataset("roneneldan/TinyStories")
@@ -173,16 +175,36 @@ def main():
     base_save_path = os.path.join(args.save_dir, "base_model")
     os.makedirs(base_save_path, exist_ok=True)
     base_model_path = os.path.join(base_save_path, f"epoch-{0}")
-    if not os.path.exists(base_model_path) or args.rerun_base:
+    if not os.path.exists(base_model_path):
         # Train base model on shuffled full dataset
         print("Training base model...")
         wandb.init(project="tinystories-training", name=f"base_model")
-        _, _, _ = train_model(
+        full_base_model, full_optimizer, _ = train_model(
             texts=texts[args.n_partial:args.n_base],
             model=partial_base_model,
             optimizer=partial_optimizer,
             tokenizer=tokenizer,
             save_path=base_save_path,
+            index=args.seed,
+            batch_size=args.batch_size,
+            epochs=1,
+            shuffle=False,
+        )
+        wandb.finish()
+    
+    ft_save_path = os.path.join(args.save_dir, "finetune")
+    os.makedirs(ft_save_path, exist_ok=True)
+    ft_model_path = os.path.join(ft_save_path, f"epoch-{0}")
+    if not os.path.exists(ft_model_path) or args.rerun_finetune:
+        # Fine-tune on shuffled full dataset
+        print("Fine-tuning on shuffled full dataset...")
+        wandb.init(project="tinystories-training", name=f"finetune")
+        _, _, _ = train_model(
+            texts=texts[args.n_base:args.n_base+args.n_finetune],
+            model=full_base_model,
+            optimizer=full_optimizer,
+            tokenizer=tokenizer,
+            save_path=ft_save_path,
             index=args.seed,
             batch_size=args.batch_size,
             epochs=1,
@@ -196,11 +218,11 @@ def main():
             if os.path.exists(shuffle_save_path):
                 shutil.rmtree(shuffle_save_path)
     
+    retrain_texts = texts[args.n_partial:args.n_base][:args.n_retrain]
+    
     # Fine-tune on each shuffle
     for i in range(args.num_shuffles):
         print(f"Fine-tuning on shuffle {i+1}/{args.num_shuffles}")
-        
-        retrain_texts = texts[:args.n_partial][-args.n_retrain:]
         
         shuffle_save_path = os.path.join(args.save_dir, f"shuffle_{i}")
         os.makedirs(shuffle_save_path, exist_ok=True)
@@ -249,7 +271,7 @@ def main():
     else:
         prompts = [args.prompt] * args.n_samples
     
-    shuffle_metrics, samples_path = generate_and_evaluate_samples(base_model_path, tokenizer, prompts, args)
+    shuffle_metrics, samples_path = generate_and_evaluate_samples(ft_model_path, tokenizer, prompts, args)
     if args.ref_model_path is not None:
         ref_shuffle_metrics, _ = generate_and_evaluate_samples(args.ref_model_path, tokenizer, prompts, args)
         slope, intercept, _, _, _ = scp.stats.linregress(ref_shuffle_metrics, shuffle_metrics)
