@@ -90,11 +90,12 @@ def experiment_metric(text, prediction, prompt):
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--fine_tune", action="store_true", default=False)
+    
     parser.add_argument("--save_dir", type=str, required=True)
     parser.add_argument("--batch_size", type=int, default=4)
     parser.add_argument("--n_partial", type=int, default=1)
-    parser.add_argument("--n_finetune", type=int, default=1)
+    parser.add_argument("--n_retrain", type=int, default=1)
+    parser.add_argument("--n_finetune", type=int, default=0)
     parser.add_argument("--n_samples", type=int, default=100)
     parser.add_argument("--n_epochs", type=int, default=1)
     parser.add_argument("--temperature", type=float, default=0.7)
@@ -104,7 +105,6 @@ def main():
     parser.add_argument("--prompt", type=str, default=None)
     parser.add_argument("--rerun_shuffles", action="store_true", default=False)
     parser.add_argument("--rerun_finetune", action="store_true", default=False)
-    parser.add_argument("--n_retrain", type=int, default=1)
     parser.add_argument("--hidden_size", type=int, default=256)
     parser.add_argument("--intermediate_size", type=int, default=512)
     parser.add_argument("--num_hidden_layers", type=int, default=4)
@@ -227,17 +227,12 @@ def main():
         shuffle_save_path = os.path.join(args.save_dir, f"shuffle_{i}")
         os.makedirs(shuffle_save_path, exist_ok=True)
 
-        if args.fine_tune:
-            # Reload so we don't share info across partitions
-            partial_base_model = LlamaForCausalLM.from_pretrained(partial_base_model_path)
-            partial_optimizer = torch.optim.AdamW(partial_base_model.parameters(), lr=1e-5)
-            partial_optimizer.load_state_dict(torch.load(partial_optimizer_path))
+        partial_base_model = LlamaForCausalLM.from_pretrained(partial_base_model_path)
+        partial_optimizer = torch.optim.AdamW(partial_base_model.parameters(), lr=1e-5)
+        partial_optimizer.load_state_dict(torch.load(partial_optimizer_path))
 
-            model = partial_base_model
-            optimizer = partial_optimizer
-        else:
-            model = None
-            optimizer = None
+        model = partial_base_model
+        optimizer = partial_optimizer
         
         shuffle_model_path = os.path.join(shuffle_save_path, f"epoch-{args.n_epochs-1}")
         if i == args.num_shuffles - 1:
