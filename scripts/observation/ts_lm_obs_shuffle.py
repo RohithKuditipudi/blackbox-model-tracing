@@ -147,8 +147,8 @@ def main():
     partial_save_path = os.path.join(args.save_dir, "base_model_partial")
     os.makedirs(partial_save_path, exist_ok=True)
     partial_optimizer_path = os.path.join(partial_save_path, "optimizer.pt")
-
     partial_base_model_path = os.path.join(partial_save_path, f"epoch-{0}")
+
     if not os.path.exists(partial_base_model_path):
         # Train base model on shuffled full dataset
         print("Training base model...")
@@ -174,12 +174,14 @@ def main():
     # Create save directories
     base_save_path = os.path.join(args.save_dir, "base_model")
     os.makedirs(base_save_path, exist_ok=True)
+    base_optimizer_path = os.path.join(base_save_path, "optimizer.pt")
     base_model_path = os.path.join(base_save_path, f"epoch-{0}")
+
     if not os.path.exists(base_model_path):
         # Train base model on shuffled full dataset
         print("Training base model...")
         wandb.init(project="tinystories-training", name=f"base_model")
-        full_base_model, full_optimizer, _ = train_model(
+        base_model, base_optimizer, _ = train_model(
             texts=texts[args.n_partial:args.n_base],
             model=partial_base_model,
             optimizer=partial_optimizer,
@@ -191,6 +193,12 @@ def main():
             shuffle=False,
         )
         wandb.finish()
+
+        torch.save(base_optimizer.state_dict(), base_optimizer_path)
+    
+    base_model = LlamaForCausalLM.from_pretrained(base_model_path)
+    base_optimizer = torch.optim.AdamW(base_model.parameters(), lr=1e-5)
+    base_optimizer.load_state_dict(torch.load(base_optimizer_path))
     
     ft_save_path = os.path.join(args.save_dir, "finetune")
     os.makedirs(ft_save_path, exist_ok=True)
@@ -201,8 +209,8 @@ def main():
         wandb.init(project="tinystories-training", name=f"finetune")
         _, _, _ = train_model(
             texts=texts[args.n_base:args.n_base+args.n_finetune],
-            model=full_base_model,
-            optimizer=full_optimizer,
+            model=base_model,
+            optimizer=base_optimizer,
             tokenizer=tokenizer,
             save_path=ft_save_path,
             index=args.seed,
