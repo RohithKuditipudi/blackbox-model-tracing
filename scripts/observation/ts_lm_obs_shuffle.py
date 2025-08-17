@@ -65,12 +65,22 @@ def generate_and_evaluate_samples(base_model_path, tokenizer, prompts, args):
         print(f"Evaluating shuffle model {i+1}/{args.num_shuffles}")
         
         # Load shuffle model path
-        shuffle_model_path = os.path.join(args.save_dir, f"shuffle_{i}", f"epoch-{args.n_epochs-1}")
+        tmp_model_path = os.path.join(args.save_dir, f"shuffle_{i}", f"epoch-{args.n_epochs-1}")
         
         # Get predictions using evaluate_model
-        shuffle_model = LlamaForCausalLM.from_pretrained(shuffle_model_path)
+        tmp_model = LlamaForCausalLM.from_pretrained(tmp_model_path)
+        if args.finetune_on_test:
+            tmp_model, _, _ = train_model(
+                texts=samples,
+                model=tmp_model,
+                tokenizer=tokenizer,
+                index=args.seed + i,
+                batch_size=args.batch_size,
+                epochs=1,
+                shuffle=False,
+            )
         predictions, metrics = evaluate_model(
-            model=shuffle_model,
+            model=tmp_model,
             tokenizer=tokenizer,
             texts=samples,
             metric=experiment_metric,
@@ -105,6 +115,7 @@ def main():
     parser.add_argument("--prompt", type=str, default=None)
     parser.add_argument("--rerun_shuffles", action="store_true", default=False)
     parser.add_argument("--rerun_finetune", action="store_true", default=False)
+    parser.add_argument("--finetune_on_test", action="store_true", default=False)
     parser.add_argument("--reinit_ft_optimizer", action="store_true", default=False)
     parser.add_argument("--hidden_size", type=int, default=256)
     parser.add_argument("--intermediate_size", type=int, default=512)
@@ -257,7 +268,7 @@ def main():
                 config=config,
                 tokenizer=tokenizer,
                 save_path=shuffle_save_path,
-                index=args.seed + i, # different seed for each partition
+                index=args.seed + i, # different seed for each model
                 batch_size=args.batch_size,
                 epochs=args.n_epochs,
                 model=model,

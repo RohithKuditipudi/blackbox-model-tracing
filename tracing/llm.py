@@ -63,9 +63,9 @@ def evaluate_model(model, tokenizer, texts, prompts=None, metric=None, batch_siz
 
 def train_model(
     texts, 
-    tokenizer, 
-    save_path, 
+    tokenizer,  
     index,
+    save_path=None,
     batch_size=1, 
     epochs=1,
     reshuffle=False,
@@ -117,8 +117,9 @@ def train_model(
                 "epoch": epoch,
             })
 
-        model.save_pretrained(os.path.join(save_path, f'epoch-{epoch}'))
-        tokenizer.save_pretrained(os.path.join(save_path, f'epoch-{epoch}'))
+        if save_path is not None:
+            model.save_pretrained(os.path.join(save_path, f'epoch-{epoch}'))
+            tokenizer.save_pretrained(os.path.join(save_path, f'epoch-{epoch}'))
     
     return model, optimizer, shuffle_orders
 
