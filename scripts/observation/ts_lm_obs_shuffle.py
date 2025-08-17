@@ -105,6 +105,7 @@ def main():
     parser.add_argument("--prompt", type=str, default=None)
     parser.add_argument("--rerun_shuffles", action="store_true", default=False)
     parser.add_argument("--rerun_finetune", action="store_true", default=False)
+    parser.add_argument("--reinit_ft_optimizer", action="store_true", default=False)
     parser.add_argument("--hidden_size", type=int, default=256)
     parser.add_argument("--intermediate_size", type=int, default=512)
     parser.add_argument("--num_hidden_layers", type=int, default=4)
@@ -198,7 +199,8 @@ def main():
     
     base_model = LlamaForCausalLM.from_pretrained(base_model_path)
     base_optimizer = torch.optim.AdamW(base_model.parameters(), lr=1e-5)
-    base_optimizer.load_state_dict(torch.load(base_optimizer_path))
+    if not args.reinit_ft_optimizer:
+        base_optimizer.load_state_dict(torch.load(base_optimizer_path))
     
     ft_save_path = os.path.join(args.save_dir, "finetune")
     os.makedirs(ft_save_path, exist_ok=True)
