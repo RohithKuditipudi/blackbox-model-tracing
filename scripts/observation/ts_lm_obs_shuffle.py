@@ -70,6 +70,7 @@ def generate_and_evaluate_samples(base_model_path, tokenizer, prompts, args):
         # Get predictions using evaluate_model
         tmp_model = LlamaForCausalLM.from_pretrained(tmp_model_path)
         if args.finetune_on_test:
+            wandb.init(project="tinystories-training", name=f"tmp_model")
             tmp_model, _, _ = train_model(
                 texts=samples,
                 model=tmp_model,
@@ -79,6 +80,8 @@ def generate_and_evaluate_samples(base_model_path, tokenizer, prompts, args):
                 epochs=1,
                 shuffle=False,
             )
+            wandb.finish()
+            
         predictions, metrics = evaluate_model(
             model=tmp_model,
             tokenizer=tokenizer,
