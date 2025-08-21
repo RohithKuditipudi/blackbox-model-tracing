@@ -60,11 +60,20 @@ def evaluate_model(model, tokenizer, texts, prompts=None, metric=None, batch_siz
         
     return predictions,metrics
 
+def model_exists(save_path, epoch=0):
+    return os.path.exists(os.path.join(save_path, f'epoch-{epoch}'))
+
+def load_model_and_optimizer(save_path, epoch=0):
+    model = LlamaForCausalLM.from_pretrained(os.path.join(save_path, f'epoch-{epoch}'))
+    optimizer = torch.optim.AdamW(model.parameters(), lr=1e-5)
+    optimizer.load_state_dict(torch.load(os.path.join(save_path, f'epoch-{epoch}', "optimizer.pt")))
+    
+    return model, optimizer
 
 def train_model(
     texts, 
     tokenizer,  
-    index,
+    index=None,
     save_path=None,
     batch_size=1, 
     epochs=1,
@@ -73,11 +82,19 @@ def train_model(
     model=None,
     optimizer=None,
     shuffle=True,
+    optimizer_params=None,
 ):
+    if index is None:
+        assert shuffle == False, "index must be provided if shuffle is False"
+    else:
+        random.seed(index)
+
     if model is None:
         model = LlamaForCausalLM(config)
+    if optimizer_params is None:
+        optimizer_params = {"lr": 1e-5}
     if optimizer is None:
-         optimizer = torch.optim.AdamW(model.parameters(), lr=1e-5)
+        optimizer = torch.optim.AdamW(model.parameters(), **optimizer_params)
     
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     model.to(device)
@@ -85,7 +102,6 @@ def train_model(
     for k,v in optimizer.state.items():
         optimizer.state[k] = put(v, device)
 
-    random.seed(index)
     if shuffle:
         shuffle_orders = [random.sample(list(range(len(texts))), len(texts)) for _ in range(epochs)]
     else:
@@ -120,6 +136,7 @@ def train_model(
         if save_path is not None:
             model.save_pretrained(os.path.join(save_path, f'epoch-{epoch}'))
             tokenizer.save_pretrained(os.path.join(save_path, f'epoch-{epoch}'))
+            torch.save(optimizer.state_dict(), os.path.join(save_path, f'epoch-{epoch}', "optimizer.pt"))
     
     return model, optimizer, shuffle_orders
 
@@ -135,13 +152,16 @@ def distill_model(
     epochs=1, 
     temperature=1.0, 
     hard_targets=False,
+    optimizer_params=None,
 ):
     """
     Perform knowledge distillation training, similar to train_tiny
     """
 
     student_model = LlamaForCausalLM(config)
-    optimizer = torch.optim.AdamW(student_model.parameters(), lr=1e-5)
+    if optimizer_params is None:
+        optimizer_params = {"lr": 1e-5}
+    optimizer = torch.optim.AdamW(student_model.parameters(), **optimizer_params)
     criterion = torch.nn.CrossEntropyLoss()
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
