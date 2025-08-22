@@ -1,8 +1,8 @@
 import os
 import argparse
 from datasets import load_dataset
-from sympy.printing.latex import true
 from transformers import AutoTokenizer, AutoConfig, LlamaConfig, LlamaForCausalLM
+from vllm import SamplingParams
 import wandb
 import random
 import torch
@@ -15,12 +15,9 @@ import subprocess
 import hashlib
 
 from tracing.llm import train_model, generate, evaluate_model, load_model_and_optimizer, model_exists
-from vllm import SamplingParams
+from tracing.utils import get_git_revision_hash
 
 import torch.distributed as dist
-
-def get_git_revision_hash() -> str:
-    return subprocess.check_output(['git', 'rev-parse', 'HEAD']).decode('ascii').strip()
 
 def generate_and_evaluate_samples(base_model_path, tokenizer, prompts, args):
     """Generate samples from base model and evaluate shuffle models"""
