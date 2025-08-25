@@ -15,10 +15,14 @@ def main():
     args = parser.parse_args()
 
     sweep_configs = {
-        "n_partial": [400000],
-        "n_retrain": [50000],
-        "n_finetune": [100, 500, 1000],
-        "n_epochs": [1, 3, 5],
+        "n_partial_0": [450000],
+        "n_base": [500000],
+        "n_finetune": [0, 100, 1000, 5000, 10000, 20000, 50000],
+        "num_partial_models": [5],
+        "n_sample": [10, 100, 1000, 5000, 10000],
+        "sampling_seed": list(range(10)),
+        "num_shuffles": [10],
+        "partial_model_index": list(range(5)),
         "save_dir": args.save_dir,
         "log_dir": args.log_dir,
     }
