@@ -484,8 +484,6 @@ def run_shuffling(args):
 
     # Fine-tune on each shuffle
     for i in range(args.num_shuffles):
-        print(f"Fine-tuning on shuffle {i+1}/{args.num_shuffles}")
-        
         if i == args.num_shuffles - 1:
             shuffle = False
         else:
@@ -494,6 +492,8 @@ def run_shuffling(args):
         shuffle_model_path = get_shuffle_model_path(args, shuffle_idx=i)
         with thing_exists_lock(path=shuffle_model_path, thing_exists_fn=model_exists) as thing_exists:
             if not thing_exists:
+                print(f"Fine-tuning on shuffle {i+1}/{args.num_shuffles}")
+
                 wandb.init(project="tinystories-training", name=f"shuffle_{i}")
                 model, optimizer = load_model_and_optimizer(args.partial_model_path)
                 train_model(
