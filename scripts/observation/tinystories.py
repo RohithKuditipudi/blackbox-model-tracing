@@ -11,7 +11,7 @@ import pickle
 import hashlib
 
 from tracing.llm import train_model, generate, evaluate_model, load_model_and_optimizer, model_exists
-from tracing.utils import get_git_revision_hash
+from tracing.utils import get_git_revision_hash, thing_exists_lock, file_exists
 
 import torch.distributed as dist
 
@@ -283,35 +283,36 @@ def run_training(args):
     optimizer_params = get_default_optimizer_params(args)
 
     base_model_path = get_base_model_path(args)
-    if not model_exists(base_model_path):
-        # Train base model on shuffled full dataset
-        print("Training base model...")
-        wandb.init(project="tinystories-training", name=f"base_model")
-        train_model(
-            texts=texts[:args.n_partial_0],
-            config=config,
-            tokenizer=tokenizer,
-            save_path=get_partial_model_path(args, partial_idx=0),
-            batch_size=args.batch_size,
-            epochs=1,
-            shuffle=False,
-            optimizer_params=optimizer_params,
-        )
+    with thing_exists_lock(path=base_model_path, thing_exists_fn=model_exists) as thing_exists:
+        if not thing_exists:
+            # Train base model on shuffled full dataset
+            print("Training base model...")
+            wandb.init(project="tinystories-training", name=f"base_model")
+            train_model(
+                texts=texts[:args.n_partial_0],
+                config=config,
+                tokenizer=tokenizer,
+                save_path=get_partial_model_path(args, partial_idx=0),
+                batch_size=args.batch_size,
+                epochs=1,
+                shuffle=False,
+                optimizer_params=optimizer_params,
+            )
 
-        assert (args.n_base - args.n_partial_0) % (args.num_partial_models) == 0, "num_partial_models must be a factor of n_base - n_partial_0"
-        interval_size = (args.n_base - args.n_partial_0) // (args.num_partial_models)
+            assert (args.n_base - args.n_partial_0) % (args.num_partial_models) == 0, "num_partial_models must be a factor of n_base - n_partial_0"
+            interval_size = (args.n_base - args.n_partial_0) // (args.num_partial_models)
 
-        if args.num_partial_models > 1:
-            for i in range(1, args.num_partial_models):
-                n_partial = get_n_partial(
-                    partial_idx=i, 
-                    n_partial_0=args.n_partial_0, 
-                    n_base=args.n_base, 
-                    num_partial_models=args.num_partial_models
-                )
-                partial_model_path = get_partial_model_path(args, partial_idx=i)
-                prev_partial_model_path = get_partial_model_path(args, partial_idx=i-1)
-                if not model_exists(partial_model_path):
+            if args.num_partial_models > 1:
+                for i in range(1, args.num_partial_models):
+                    n_partial = get_n_partial(
+                        partial_idx=i, 
+                        n_partial_0=args.n_partial_0, 
+                        n_base=args.n_base, 
+                        num_partial_models=args.num_partial_models
+                    )
+                    partial_model_path = get_partial_model_path(args, partial_idx=i)
+                    prev_partial_model_path = get_partial_model_path(args, partial_idx=i-1)
+                    
                     model, optimizer = load_model_and_optimizer(prev_partial_model_path)
                     train_model(
                         texts=texts[:n_partial][-interval_size:],
@@ -324,19 +325,19 @@ def run_training(args):
                         shuffle=False,
                     )
 
-        final_partial_model_path = get_partial_model_path(args, partial_idx=args.num_partial_models-1)
-        model, optimizer = load_model_and_optimizer(final_partial_model_path)
-        train_model(
-            texts=texts[:args.n_base][-interval_size:],
-            model=model,
-            optimizer=optimizer,
-            tokenizer=tokenizer,
-            save_path=base_model_path,
-            batch_size=args.batch_size,
-            epochs=1,
-            shuffle=False,
-        )
-        wandb.finish()
+            final_partial_model_path = get_partial_model_path(args, partial_idx=args.num_partial_models-1)
+            model, optimizer = load_model_and_optimizer(final_partial_model_path)
+            train_model(
+                texts=texts[:args.n_base][-interval_size:],
+                model=model,
+                optimizer=optimizer,
+                tokenizer=tokenizer,
+                save_path=base_model_path,
+                batch_size=args.batch_size,
+                epochs=1,
+                shuffle=False,
+            )
+            wandb.finish()
 
 
 def run_finetuning(args):
@@ -344,69 +345,71 @@ def run_finetuning(args):
     texts = get_training_texts(args.seed)
 
     ft_model_path = get_finetune_model_path(args)
-    if not model_exists(ft_model_path):
-        # Fine-tune on shuffled full dataset
-        print("Fine-tuning from base model...")
-        wandb.init(project="tinystories-training", name=f"finetune")
-        model, optimizer = load_model_and_optimizer(args.base_model_path)
-        if args.reinit_ft_optimizer:
-            optimizer_params = get_default_optimizer_params(args)
-            optimizer = torch.optim.AdamW(model.parameters(), **optimizer_params)
-        train_model(
-            texts=texts[args.n_base:args.n_base+args.n_finetune],
-            model=model,
-            optimizer=optimizer,
-            tokenizer=tokenizer,
-            save_path=ft_model_path,
-            batch_size=args.batch_size,
-            epochs=1,
-            shuffle=False,
-        )
-        wandb.finish()
+    with thing_exists_lock(path=ft_model_path, thing_exists_fn=model_exists) as thing_exists:
+        if not thing_exists:
+            # Fine-tune on shuffled full dataset
+            print("Fine-tuning from base model...")
+            wandb.init(project="tinystories-training", name=f"finetune")
+            model, optimizer = load_model_and_optimizer(args.base_model_path)
+            if args.reinit_ft_optimizer:
+                optimizer_params = get_default_optimizer_params(args)
+                optimizer = torch.optim.AdamW(model.parameters(), **optimizer_params)
+            train_model(
+                texts=texts[args.n_base:args.n_base+args.n_finetune],
+                model=model,
+                optimizer=optimizer,
+                tokenizer=tokenizer,
+                save_path=ft_model_path,
+                batch_size=args.batch_size,
+                epochs=1,
+                shuffle=False,
+            )
+            wandb.finish()
 
 
 def run_testing(args):
     shuffle_metrics_path = get_shuffle_metrics_path(args)
 
-    if not os.path.exists(shuffle_metrics_path):
-        tokenizer = get_tokenizer()
-        prompts, samples = read_samples(
-            samples_path=args.samples_path,
-        )
-
-        # Evaluate each shuffle model
-        shuffle_metrics = []
-        for i in range(args.num_shuffles):
-            print(f"Evaluating shuffle model {i+1}/{args.num_shuffles}")
-
-            tmp_model_path = os.path.join(args.shuffle_model_dir, f"shuffle_{i}")
-            tmp_model, _ = load_model_and_optimizer(tmp_model_path)
-            
-            if args.finetune_on_test:
-                wandb.init(project="tinystories-training", name=f"tmp_model")
-                tmp_model, _, _ = train_model(
-                    texts=samples,
-                    model=tmp_model,
-                    tokenizer=tokenizer,
-                    batch_size=args.batch_size,
-                    epochs=1,
-                    shuffle=False,
-                    optimizer_params=get_default_optimizer_params(args),
-                )
-                wandb.finish()
-                
-            _, metrics = evaluate_model(
-                model=tmp_model,
-                tokenizer=tokenizer,
-                texts=samples,
-                metric=experiment_metric,
-                prompts=prompts,
-                batch_size=args.batch_size
+    with thing_exists_lock(path=shuffle_metrics_path, thing_exists_fn=file_exists) as thing_exists:
+        if not thing_exists:
+            tokenizer = get_tokenizer()
+            prompts, samples = read_samples(
+                samples_path=args.samples_path,
             )
 
-            shuffle_metrics.append(np.mean(metrics))
-        
-        write_shuffle_metrics(shuffle_metrics_path=shuffle_metrics_path, shuffle_metrics=shuffle_metrics)
+            # Evaluate each shuffle model
+            shuffle_metrics = []
+            for i in range(args.num_shuffles):
+                print(f"Evaluating shuffle model {i+1}/{args.num_shuffles}")
+
+                tmp_model_path = os.path.join(args.shuffle_model_dir, f"shuffle_{i}")
+                tmp_model, _ = load_model_and_optimizer(tmp_model_path)
+                
+                if args.finetune_on_test:
+                    wandb.init(project="tinystories-training", name=f"tmp_model")
+                    tmp_model, _, _ = train_model(
+                        texts=samples,
+                        model=tmp_model,
+                        tokenizer=tokenizer,
+                        batch_size=args.batch_size,
+                        epochs=1,
+                        shuffle=False,
+                        optimizer_params=get_default_optimizer_params(args),
+                    )
+                    wandb.finish()
+                    
+                _, metrics = evaluate_model(
+                    model=tmp_model,
+                    tokenizer=tokenizer,
+                    texts=samples,
+                    metric=experiment_metric,
+                    prompts=prompts,
+                    batch_size=args.batch_size
+                )
+
+                shuffle_metrics.append(np.mean(metrics))
+            
+            write_shuffle_metrics(shuffle_metrics_path=shuffle_metrics_path, shuffle_metrics=shuffle_metrics)
         
     shuffle_metrics = read_shuffle_metrics(shuffle_metrics_path)
     z_score = (shuffle_metrics[-1] - np.mean(shuffle_metrics[:-1]))/np.std(shuffle_metrics[:-1])
@@ -427,20 +430,21 @@ def run_sampling(args):
         prompts = [args.prompt] * args.n_sample
 
     samples_path = get_samples_path(args)
-    if not os.path.exists(samples_path):
-        # Generate completions using model checkpoint
-        print("Generating samples from model...")
-        completions = generate(
-            prompts=prompts,
-            model_path=args.finetune_model_path,
-            sampling_params=SamplingParams(**sampling_params),
-            seed=args.sampling_seed,
-        )
+    with thing_exists_lock(path=samples_path, thing_exists_fn=file_exists) as thing_exists:
+        if not thing_exists:
+            # Generate completions using model checkpoint
+            print("Generating samples from model...")
+            completions = generate(
+                prompts=prompts,
+                model_path=args.finetune_model_path,
+                sampling_params=SamplingParams(**sampling_params),
+                seed=args.sampling_seed,
+            )
 
-        # Save generated texts
-        write_samples(samples_path=samples_path, prompts=prompts, completions=completions)
-    
-        print(f"Saved {len(completions)} samples to {samples_path}")
+            # Save generated texts
+            write_samples(samples_path=samples_path, prompts=prompts, completions=completions)
+        
+            print(f"Saved {len(completions)} samples to {samples_path}")
     
 
 def run_shuffling(args):
@@ -465,22 +469,23 @@ def run_shuffling(args):
         else:
             shuffle = True
 
-        shuffle_save_path = get_shuffle_model_path(args, shuffle_idx=i)    
-        if not model_exists(shuffle_save_path):
-            wandb.init(project="tinystories-training", name=f"shuffle_{i}")
-            model, optimizer = load_model_and_optimizer(args.partial_model_path)
-            train_model(
-                texts=retrain_texts,
-                tokenizer=tokenizer,
-                save_path=shuffle_save_path,
-                index=args.shuffle_seed + i, # different seed for each model
-                batch_size=args.batch_size,
-                epochs=1,
-                model=model,
-                optimizer=optimizer,
-                shuffle=shuffle,
-            )
-            wandb.finish()
+        shuffle_model_path = get_shuffle_model_path(args, shuffle_idx=i)
+        with thing_exists_lock(path=shuffle_model_path, thing_exists_fn=model_exists) as thing_exists:
+            if not thing_exists:
+                wandb.init(project="tinystories-training", name=f"shuffle_{i}")
+                model, optimizer = load_model_and_optimizer(args.partial_model_path)
+                train_model(
+                    texts=retrain_texts,
+                    tokenizer=tokenizer,
+                    save_path=shuffle_model_path,
+                    index=args.shuffle_seed + i, # different seed for each model
+                    batch_size=args.batch_size,
+                    epochs=1,
+                    model=model,
+                    optimizer=optimizer,
+                    shuffle=shuffle,
+                )
+                wandb.finish()
 
 
 def experiment_metric(tokenized_text, prediction, tokenized_prompt):
