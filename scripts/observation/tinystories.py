@@ -437,7 +437,7 @@ def run_sampling(args):
             print("Generating samples from model...")
             completions = generate(
                 prompts=prompts,
-                model_path=args.finetune_model_path,
+                model_checkpoint_path=os.path.join(args.finetune_model_path, "epoch-0"),
                 sampling_params=SamplingParams(**sampling_params),
                 seed=args.sampling_seed,
             )
