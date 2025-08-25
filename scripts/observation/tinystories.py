@@ -15,6 +15,8 @@ from tracing.utils import get_git_revision_hash, thing_exists_lock, file_exists
 
 import torch.distributed as dist
 
+Z_SCORE_EPS = 1e-6
+
 def get_base_model_path(args):
     training_args = get_training_args(args)
 
@@ -64,6 +66,13 @@ def get_samples_path(args):
     samples_path = os.path.join(args.save_dir, "texts", sampling_hash, "samples.txt")
 
     return samples_path
+
+
+def get_experiment_log_path(args):
+    experiment_hash = hash_args(args)
+    experiment_log_path = os.path.join(args.save_dir, "experiment_logs", experiment_hash, "log.pkl")
+
+    return experiment_log_path
 
 
 def get_shuffle_metrics_path(args):
@@ -257,6 +266,16 @@ def write_shuffle_metrics(shuffle_metrics_path, shuffle_metrics):
         pickle.dump(shuffle_metrics, f)
 
 
+def read_experiment_log(experiment_log_path):
+    with open(experiment_log_path, "rb") as f:
+        return pickle.load(f)
+
+
+def write_experiment_log(experiment_log_path, experiment_log):
+    with open(experiment_log_path, "wb") as f:
+        pickle.dump(experiment_log, f)
+        
+
 def get_default_optimizer_params(args):
     return {"lr": args.learning_rate}
 
@@ -413,7 +432,7 @@ def run_testing(args):
             write_shuffle_metrics(shuffle_metrics_path=shuffle_metrics_path, shuffle_metrics=shuffle_metrics)
         
     shuffle_metrics = read_shuffle_metrics(shuffle_metrics_path)
-    z_score = (shuffle_metrics[-1] - np.mean(shuffle_metrics[:-1]))/np.std(shuffle_metrics[:-1])
+    z_score = (shuffle_metrics[-1] - np.mean(shuffle_metrics[:-1])) / (np.std(shuffle_metrics[:-1]) + Z_SCORE_EPS)
 
     return z_score, shuffle_metrics
 
@@ -499,7 +518,6 @@ def main():
     parser = argparse.ArgumentParser()
     
     parser.add_argument("--save_dir", type=str, required=True)
-    parser.add_argument("--log_dir", type=str, required=True)
     parser.add_argument("--batch_size", type=int, default=4)
     parser.add_argument("--n_partial_0", type=int, default=0)
     parser.add_argument("--num_partial_models", type=int, default=1)
@@ -551,11 +569,8 @@ def main():
     z_score, shuffle_metrics = run_testing(testing_args)
 
     experiment_log = {"z_score": z_score, "metrics": shuffle_metrics, "args": args}
-    experiment_id = hash_args(args)
-
-    # Save shuffle metrics
-    with open(os.path.join(args.log_dir, f"experiment_{experiment_id}.pkl"), "wb") as f:
-        pickle.dump(experiment_log, f)
+    experiment_log_path = get_experiment_log_path(args)
+    write_experiment_log(experiment_log_path=experiment_log_path, experiment_log=experiment_log)
 
     if dist.is_initialized():
         dist.destroy_process_group()
