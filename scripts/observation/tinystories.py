@@ -262,6 +262,7 @@ def read_shuffle_metrics(shuffle_metrics_path):
 
 
 def write_shuffle_metrics(shuffle_metrics_path, shuffle_metrics):
+    os.makedirs(os.path.dirname(shuffle_metrics_path), exist_ok=True)
     with open(shuffle_metrics_path, "wb") as f:
         pickle.dump(shuffle_metrics, f)
 
@@ -272,6 +273,7 @@ def read_experiment_log(experiment_log_path):
 
 
 def write_experiment_log(experiment_log_path, experiment_log):
+    os.makedirs(os.path.dirname(experiment_log_path), exist_ok=True)
     with open(experiment_log_path, "wb") as f:
         pickle.dump(experiment_log, f)
         
@@ -570,7 +572,9 @@ def main():
 
     experiment_log = {"z_score": z_score, "metrics": shuffle_metrics, "args": args}
     experiment_log_path = get_experiment_log_path(args)
-    write_experiment_log(experiment_log_path=experiment_log_path, experiment_log=experiment_log)
+    with thing_exists_lock(path=experiment_log_path, thing_exists_fn=file_exists) as thing_exists:
+        if not thing_exists:
+            write_experiment_log(experiment_log_path=experiment_log_path, experiment_log=experiment_log)
 
     if dist.is_initialized():
         dist.destroy_process_group()
