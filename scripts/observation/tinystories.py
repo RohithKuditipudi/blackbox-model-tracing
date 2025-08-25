@@ -91,6 +91,7 @@ def get_training_args(args):
     training_args.learning_rate = args.learning_rate
 
     training_args.n_partial_0 = args.n_partial_0
+    training_args.n_base = args.n_base
     training_args.num_partial_models = args.num_partial_models
 
     training_args.hidden_size = args.hidden_size
@@ -153,8 +154,8 @@ def get_shuffling_args(args):
     shuffle_args.batch_size = args.batch_size
     shuffle_args.num_shuffles = args.num_shuffles
 
-    shuffle_args.n_base = args.n_base
     shuffle_args.n_partial_0 = args.n_partial_0
+    shuffle_args.n_base = args.n_base
     shuffle_args.num_partial_models = args.num_partial_models
     shuffle_args.partial_model_index = args.partial_model_index
 
@@ -312,7 +313,7 @@ def run_training(args):
                     )
                     partial_model_path = get_partial_model_path(args, partial_idx=i)
                     prev_partial_model_path = get_partial_model_path(args, partial_idx=i-1)
-                    
+
                     model, optimizer = load_model_and_optimizer(prev_partial_model_path)
                     train_model(
                         texts=texts[:n_partial][-interval_size:],
