@@ -1,5 +1,5 @@
 import torch
-from transformers import LlamaForCausalLM, AutoTokenizer
+from transformers import LlamaForCausalLM
 from torch.utils.data import DataLoader
 from tqdm import tqdm
 import os
@@ -133,7 +133,7 @@ def train_model(
                 "epoch": epoch,
             })
 
-        if save_dir is not None:
+        if save_path is not None:
             model.save_pretrained(os.path.join(save_path, f'epoch-{epoch}'))
             tokenizer.save_pretrained(os.path.join(save_path, f'epoch-{epoch}'))
             torch.save(optimizer.state_dict(), os.path.join(save_path, f'epoch-{epoch}', "optimizer.pt"))
