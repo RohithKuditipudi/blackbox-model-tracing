@@ -75,3 +75,11 @@ def file_exists(path):
     
 def dir_exists(path):
     return os.path.isdir(path)
+
+def str_to_bool(s):
+    if s == "true":
+        return True
+    elif s == "false":
+        return False
+    else:
+        raise ValueError(f"Invalid boolean string: {s}")

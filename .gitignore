@@ -1,2 +1,3 @@
 tracing.egg-info/*
 uv.lock
+tracing/__pycache__/*

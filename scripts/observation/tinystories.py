@@ -11,7 +11,7 @@ import pickle
 import hashlib
 
 from tracing.llm import train_model, generate, evaluate_model, load_model_and_optimizer, model_exists
-from tracing.utils import get_git_revision_hash, thing_exists_lock, file_exists
+from tracing.utils import get_git_revision_hash, thing_exists_lock, file_exists, str_to_bool
 
 import torch.distributed as dist
 
@@ -182,7 +182,6 @@ def get_testing_args(args):
     test_args.batch_size = args.batch_size
     test_args.learning_rate = args.learning_rate
 
-    test_args.ref_model_path = args.ref_model_path
     test_args.finetune_on_test = args.finetune_on_test
     test_args.num_shuffles = args.num_shuffles
     
@@ -544,20 +543,23 @@ def main():
     parser.add_argument("--sampling_seed", type=int, default=0)
     parser.add_argument("--num_shuffles", type=int, default=10)
     parser.add_argument("--prompt", type=str, default=None)
-    parser.add_argument("--finetune_on_test", action="store_true", default=False)
-    parser.add_argument("--reinit_ft_optimizer", action="store_true", default=False)
+    parser.add_argument("--finetune_on_test", type=str, default="false")
+    parser.add_argument("--reinit_ft_optimizer", type=str, default="true")
     parser.add_argument("--partial_model_index", type=int, default=0)
     parser.add_argument("--hidden_size", type=int, default=256)
     parser.add_argument("--intermediate_size", type=int, default=512)
     parser.add_argument("--num_hidden_layers", type=int, default=4)
     parser.add_argument("--num_attention_heads", type=int, default=8)
     parser.add_argument("--max_position_embeddings", type=int, default=512)
-    parser.add_argument("--ref_model_path", type=str, default=None)
     parser.add_argument("--max_tokens", type=int, default=32)
     parser.add_argument("--learning_rate", type=float, default=1e-5)
-    parser.add_argument("--include_hash", action="store_true", default=False)
+    parser.add_argument("--include_hash", type=str, default="false")
 
     args = parser.parse_args()
+
+    args.finetune_on_test = str_to_bool(args.finetune_on_test)
+    args.reinit_ft_optimizer = str_to_bool(args.reinit_ft_optimizer)
+    args.include_hash = str_to_bool(args.include_hash)
 
     args.git_hash = get_git_revision_hash() if args.include_hash else None
 
@@ -570,14 +572,14 @@ def main():
     training_args = get_training_args(args)
     run_training(training_args)
 
+    shuffling_args = get_shuffling_args(args)
+    run_shuffling(shuffling_args)
+
     finetuning_args = get_finetuning_args(args)
     run_finetuning(finetuning_args)
 
     sampling_args = get_sampling_args(args)
     run_sampling(sampling_args)
-
-    shuffling_args = get_shuffling_args(args)
-    run_shuffling(shuffling_args)
 
     testing_args = get_testing_args(args)
     z_score, shuffle_metrics = run_testing(testing_args)
