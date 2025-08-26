@@ -306,7 +306,9 @@ def run_training(args):
 
     base_model_path = get_base_model_path(args)
     with thing_exists_lock(path=base_model_path, thing_exists_fn=model_exists) as thing_exists:
-        if not thing_exists:
+        if thing_exists:
+            print("Base model already exists, skipping training")
+        else:
             # Train base model on shuffled full dataset
             print("Training base model...")
             wandb.init(project="tinystories-training", name=f"base_model")
@@ -368,7 +370,9 @@ def run_finetuning(args):
 
     ft_model_path = get_finetune_model_path(args)
     with thing_exists_lock(path=ft_model_path, thing_exists_fn=model_exists) as thing_exists:
-        if not thing_exists:
+        if thing_exists:
+            print("Finetuned model already exists, skipping finetuning")
+        else:
             # Fine-tune on shuffled full dataset
             print("Fine-tuning from base model...")
             wandb.init(project="tinystories-training", name=f"finetune")
@@ -393,7 +397,9 @@ def run_testing(args):
     shuffle_metrics_path = get_shuffle_metrics_path(args)
 
     with thing_exists_lock(path=shuffle_metrics_path, thing_exists_fn=file_exists) as thing_exists:
-        if not thing_exists:
+        if thing_exists:
+            print("Shuffle metrics already exists, skipping to z-score calculation")
+        else:
             tokenizer = get_tokenizer()
             prompts, samples = read_samples(
                 samples_path=args.samples_path,
@@ -453,7 +459,9 @@ def run_sampling(args):
 
     samples_path = get_samples_path(args)
     with thing_exists_lock(path=samples_path, thing_exists_fn=file_exists) as thing_exists:
-        if not thing_exists:
+        if thing_exists:
+            print("Samples already exist, skipping sampling")
+        else:
             # Generate completions using model checkpoint
             print("Generating samples from model...")
             completions = generate(
@@ -482,20 +490,24 @@ def run_shuffling(args):
 
     retrain_texts = texts[n_partial:args.n_base]
 
-    # Fine-tune on each shuffle
-    for i in range(args.num_shuffles):
-        if i == args.num_shuffles - 1:
-            shuffle = False
+    last_shuffle_model_path = get_shuffle_model_path(args, shuffle_idx=args.num_shuffles-1)
+    with thing_exists_lock(path=last_shuffle_model_path, thing_exists_fn=model_exists) as thing_exists:
+        if thing_exists:
+            print("Shuffled models already exist, skipping shuffling")
         else:
-            shuffle = True
+            # Fine-tune on each shuffle
+            for i in range(args.num_shuffles):
+                if i == args.num_shuffles - 1:
+                    shuffle = False
+                else:
+                    shuffle = True
 
-        shuffle_model_path = get_shuffle_model_path(args, shuffle_idx=i)
-        with thing_exists_lock(path=shuffle_model_path, thing_exists_fn=model_exists) as thing_exists:
-            if not thing_exists:
                 print(f"Fine-tuning on shuffle {i+1}/{args.num_shuffles}")
 
-                wandb.init(project="tinystories-training", name=f"shuffle_{i}")
+                shuffle_model_path = get_shuffle_model_path(args, shuffle_idx=i)
                 model, optimizer = load_model_and_optimizer(args.partial_model_path)
+
+                wandb.init(project="tinystories-training", name=f"shuffle_{i}")
                 train_model(
                     texts=retrain_texts,
                     tokenizer=tokenizer,
