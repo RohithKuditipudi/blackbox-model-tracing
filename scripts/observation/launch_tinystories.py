@@ -10,7 +10,7 @@ def main():
 
     parser.add_argument("--save_dir", type=str, required=True)
     parser.add_argument("--log_dir", type=str, default="./slurm_logs")
-    parser.add_argument("--num_jobs", type=int, default=10)
+    parser.add_argument("--num_jobs", type=int, default=10000)
     parser.add_argument("--start_job", type=int, default=0)
     parser.add_argument("--dry_run", action="store_true", help="Print commands without running them.")
 
