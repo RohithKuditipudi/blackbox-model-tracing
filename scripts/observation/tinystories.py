@@ -191,6 +191,20 @@ def get_testing_args(args):
     return test_args
 
 
+def update_experiment_args(args):
+    args.finetune_on_test = str_to_bool(args.finetune_on_test)
+    args.reinit_ft_optimizer = str_to_bool(args.reinit_ft_optimizer)
+    args.include_hash = str_to_bool(args.include_hash)
+
+    args.git_hash = get_git_revision_hash() if args.include_hash else None
+
+    args.base_model_path = get_base_model_path(args)
+    args.finetune_model_path = get_finetune_model_path(args)
+    args.partial_model_path = get_partial_model_path(args, args.partial_model_index)
+    args.samples_path = get_samples_path(args)
+    args.shuffle_model_dir = get_shuffle_model_path(args)
+
+
 def get_dataset():
     dataset = load_dataset("roneneldan/TinyStories")
 
@@ -556,18 +570,7 @@ def main():
     parser.add_argument("--include_hash", type=str, default="false")
 
     args = parser.parse_args()
-
-    args.finetune_on_test = str_to_bool(args.finetune_on_test)
-    args.reinit_ft_optimizer = str_to_bool(args.reinit_ft_optimizer)
-    args.include_hash = str_to_bool(args.include_hash)
-
-    args.git_hash = get_git_revision_hash() if args.include_hash else None
-
-    args.base_model_path = get_base_model_path(args)
-    args.finetune_model_path = get_finetune_model_path(args)
-    args.partial_model_path = get_partial_model_path(args, args.partial_model_index)
-    args.samples_path = get_samples_path(args)
-    args.shuffle_model_dir = get_shuffle_model_path(args)
+    update_experiment_args(args)
     
     training_args = get_training_args(args)
     run_training(training_args)
