@@ -14,6 +14,7 @@ dependencies = [
     "xopen>=2.0.2",
     "scipy",
     "datasets",
+    "matplotlib",
 ]
 
 [tool.setuptools.packages.find]
