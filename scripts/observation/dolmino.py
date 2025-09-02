@@ -31,8 +31,11 @@ def get_tokenizer(args):
     return tokenizer
 
 
-def get_model(args, revision_id):
-    model = AutoModelForCausalLM.from_pretrained(args.model_name, revision=args.revision_template.format(revision_id=revision_id))
+def get_model(args, model_id):
+    model = AutoModelForCausalLM.from_pretrained(
+        args.model_name, 
+        revision=args.revision_template.format(revision_id=model_id+1)
+    )
 
     return model
 
@@ -83,9 +86,9 @@ def run_testing(args):
 
     # Evaluate each model revision
     revision_metrics = []
-    for i in range(3):
-        print(f"Evaluating model revision {i+1}/3")
-        tmp_model = get_model(args, revision_id=i+1)
+    for model_id in range(3):
+        print(f"Evaluating model {model_id}/3")
+        tmp_model = get_model(args, model_id=model_id)
             
         _, metrics = evaluate_model(
             model=tmp_model,
@@ -98,9 +101,9 @@ def run_testing(args):
 
         revision_metrics.append(np.mean(metrics))
 
-    stat = revision_metrics[args.sampling_revision_id]
-    mean = (sum(revision_metrics) - revision_metrics[args.sampling_revision_id]) / 2
-    std = abs(revision_metrics[(args.sampling_revision_id + 1) % 3] - revision_metrics[(args.sampling_revision_id - 1) % 3])
+    stat = revision_metrics[args.sampling_model_id]
+    mean = (sum(revision_metrics) - revision_metrics[args.sampling_model_id]) / 2
+    std = abs(revision_metrics[(args.sampling_model_id + 1) % 3] - revision_metrics[(args.sampling_model_id - 1) % 3])
 
     z_score = (stat - mean) / (std + Z_SCORE_EPS)
 
@@ -126,7 +129,7 @@ def run_sampling(args):
         model_checkpoint_path=args.model_name,
         sampling_params=SamplingParams(**sampling_params),
         seed=args.sampling_seed,
-        revision=args.revision_template.format(revision_id=args.sampling_revision_id),
+        revision=args.revision_template.format(revision_id=args.sampling_model_id+1),
     )
 
     # Save generated texts
@@ -147,7 +150,7 @@ def main():
     
     parser.add_argument("--save_dir", type=str, required=True)
     parser.add_argument("--model", type=str, default="1B")
-    parser.add_argument("--sampling_revision_id", type=int, default=1)
+    parser.add_argument("--sampling_model_id", type=int, default=0)
     parser.add_argument("--sampling_seed", type=int, default=0)
     parser.add_argument("--n_sample", type=int, default=100)
     parser.add_argument("--temperature", type=float, default=1.0)
