@@ -17,7 +17,7 @@ MODEL_NAME_DICT = {
     "1B": "allenai/OLMo-2-0425-1B",
 }
 REVISION_TEMPLATE_DICT = {
-    "1B": "stage2-ingredient{revision_id}-step23852-tokens50B",
+    "1B": "stage2-ingredient{revision_id}-step23852-tokens51B",
 }
 
 def generate(prompts, model_checkpoint_path, sampling_params, prompt_template="{prompt}", revision=None):
