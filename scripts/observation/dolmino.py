@@ -191,6 +191,7 @@ def main():
     parser.add_argument("--model", type=str, default="1B")
     parser.add_argument("--sampling_model_id", type=int, default=0)
     parser.add_argument("--n_sample", type=int, default=100)
+    parser.add_argument("--sampling_seed", type=int, default=0)
     parser.add_argument("--temperature", type=float, default=1.0)
     parser.add_argument("--max_tokens", type=int, default=32)
     parser.add_argument("--prompt", type=str, default=None)
