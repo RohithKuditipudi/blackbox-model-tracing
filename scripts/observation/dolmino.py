@@ -5,8 +5,9 @@ from transformers import AutoTokenizer, AutoModelForCausalLM
 from vllm import SamplingParams
 import random
 import numpy as np
+import torch
 
-from tracing.llm import generate, evaluate_model
+from tracing.llm import evaluate_model
 
 import torch.distributed as dist
 
@@ -18,6 +19,42 @@ MODEL_NAME_DICT = {
 REVISION_TEMPLATE_DICT = {
     "1B": "stage2-ingredient{revision_id}-step23852-tokens50B",
 }
+
+def generate(prompts, model_checkpoint_path, sampling_params, prompt_template="{prompt}", revision=None):
+    tokenizer = AutoTokenizer.from_pretrained(model_checkpoint_path)
+    model = AutoModelForCausalLM.from_pretrained(model_checkpoint_path, revision=revision)
+    model = model.to('cuda')
+    model.eval()
+
+    # Ensure a pad token exists for padding (common for decoder-only LMs)
+    if tokenizer.pad_token is None:
+        # fall back to eos as pad; common HF practice for causal LMs
+        tokenizer.pad_token = tokenizer.eos_token
+    if model.config.pad_token_id is None:
+        model.config.pad_token_id = tokenizer.pad_token_id
+
+    prompts = [prompt_template.format(prompt=prompt) for prompt in prompts]
+
+    inputs = tokenizer(
+        prompts,
+        return_tensors='pt',
+        return_token_type_ids=False,
+        padding=True,
+        truncation=True,
+    )
+    inputs = {k: v.to('cuda') for k,v in inputs.items()}
+    
+    with torch.no_grad():
+        generated_tokens = model.generate(
+            **inputs, 
+            max_new_tokens=sampling_params["max_tokens"], 
+            do_sample=True, 
+            temperature=sampling_params["temperature"]
+        )
+    generated_texts = tokenizer.batch_decode(generated_tokens, skip_special_tokens=True)
+    
+    return generated_texts
+
 
 def get_samples_path(args):
     samples_path = os.path.join(args.save_dir, "samples.txt")
@@ -128,7 +165,6 @@ def run_sampling(args):
         prompts=prompts,
         model_checkpoint_path=args.model_name,
         sampling_params=SamplingParams(**sampling_params),
-        seed=args.sampling_seed,
         revision=args.revision_template.format(revision_id=args.sampling_model_id+1),
     )
 
@@ -151,11 +187,9 @@ def main():
     parser.add_argument("--save_dir", type=str, required=True)
     parser.add_argument("--model", type=str, default="1B")
     parser.add_argument("--sampling_model_id", type=int, default=0)
-    parser.add_argument("--sampling_seed", type=int, default=0)
     parser.add_argument("--n_sample", type=int, default=100)
     parser.add_argument("--temperature", type=float, default=1.0)
     parser.add_argument("--max_tokens", type=int, default=32)
-    parser.add_argument("--num_shuffles", type=int, default=10)
     parser.add_argument("--prompt", type=str, default=None)
 
     args = parser.parse_args()
