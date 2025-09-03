@@ -2,7 +2,6 @@ import os
 import argparse
 from datasets import load_dataset
 from transformers import AutoTokenizer, AutoModelForCausalLM
-from vllm import SamplingParams
 import random
 import numpy as np
 import torch
@@ -167,7 +166,7 @@ def run_sampling(args):
     completions = generate(
         prompts=prompts,
         model_checkpoint_path=args.model_name,
-        sampling_params=SamplingParams(**sampling_params),
+        sampling_params=sampling_params,
         revision=args.revision_template.format(revision_id=args.sampling_model_id+1),
     )
 
