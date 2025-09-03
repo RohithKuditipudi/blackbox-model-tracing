@@ -43,17 +43,20 @@ def generate(prompts, model_checkpoint_path, sampling_params, prompt_template="{
         truncation=True,
     )
     inputs = {k: v.to('cuda') for k,v in inputs.items()}
+    # Track per-item input lengths so we can slice completions only
+    input_lengths = (inputs["attention_mask"].sum(dim=1)).tolist()
     
     with torch.no_grad():
         generated_tokens = model.generate(
             **inputs, 
-            max_new_tokens=sampling_params["max_tokens"], 
+            max_new_tokens=sampling_params["max_tokens"],
             do_sample=True, 
             temperature=sampling_params["temperature"]
         )
     generated_texts = tokenizer.batch_decode(generated_tokens, skip_special_tokens=True)
+    completions = [text[length:] for text, length in zip(generated_texts, input_lengths)]
     
-    return generated_texts
+    return completions
 
 
 def get_samples_path(args):
