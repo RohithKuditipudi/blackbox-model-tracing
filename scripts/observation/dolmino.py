@@ -5,6 +5,8 @@ from transformers import AutoTokenizer, AutoModelForCausalLM
 import random
 import numpy as np
 import torch
+import hashlib
+import pickle
 
 from tracing.llm import evaluate_model
 
@@ -14,10 +16,32 @@ Z_SCORE_EPS = 1e-6
 
 MODEL_NAME_DICT = {
     "1B": "allenai/OLMo-2-0425-1B",
+    "7B": "allenai/OLMo-2-1124-7B",
+    "13B": "allenai/OLMo-2-1124-13B",
 }
 REVISION_TEMPLATE_DICT = {
     "1B": "stage2-ingredient{revision_id}-step23852-tokens51B",
+    "7B": "stage2-ingredient{revision_id}-step11931-tokens50B",
+    "13B": "stage2-ingredient{revision_id}-step11931-tokens100B",
 }
+
+
+def hash_args(args, length=16):
+    return hashlib.sha256(str(args).encode()).hexdigest()[:length]
+
+
+def get_experiment_log_path(args):
+    experiment_hash = hash_args(args)
+    experiment_log_path = os.path.join(args.save_dir, "experiment_logs", experiment_hash, "log.pkl")
+
+    return experiment_log_path
+
+
+def write_experiment_log(experiment_log_path, experiment_log):
+    os.makedirs(os.path.dirname(experiment_log_path), exist_ok=True)
+    with open(experiment_log_path, "wb") as f:
+        pickle.dump(experiment_log, f)
+
 
 def generate(prompts, model_checkpoint_path, sampling_params, prompt_template="{prompt}", revision=None):
     tokenizer = AutoTokenizer.from_pretrained(model_checkpoint_path)
@@ -187,7 +211,7 @@ def main():
     parser = argparse.ArgumentParser()
     
     parser.add_argument("--save_dir", type=str, required=True)
-    parser.add_argument("--model", type=str, default="1B")
+    parser.add_argument("--model_size", type=str, default="1B")
     parser.add_argument("--sampling_model_id", type=int, default=0)
     parser.add_argument("--n_sample", type=int, default=100)
     parser.add_argument("--sampling_seed", type=int, default=0)
@@ -197,14 +221,16 @@ def main():
 
     args = parser.parse_args()
 
-    assert args.model in MODEL_NAME_DICT.keys()
-    args.model_name = MODEL_NAME_DICT[args.model]
-    args.revision_template = REVISION_TEMPLATE_DICT[args.model]
+    assert args.model_size in MODEL_NAME_DICT.keys()
+    args.model_name = MODEL_NAME_DICT[args.model_size]
+    args.revision_template = REVISION_TEMPLATE_DICT[args.model_size]
 
     run_sampling(args)
     z_score, _ = run_testing(args)
 
-    print(f"z-score: {z_score}")
+    experiment_log = {"z_score": z_score, "args": args}
+    experiment_log_path = get_experiment_log_path(args)
+    write_experiment_log(experiment_log_path=experiment_log_path, experiment_log=experiment_log)
 
     if dist.is_initialized():
         dist.destroy_process_group()
