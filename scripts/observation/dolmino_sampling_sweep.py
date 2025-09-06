@@ -7,6 +7,7 @@ import numpy as np
 import torch
 import hashlib
 import pickle
+import itertools
 
 from tracing.llm import evaluate_model
 from tracing.utils import thing_exists_lock, file_exists
@@ -155,34 +156,35 @@ def read_metrics(metrics_path):
     return metrics
 
 
-def run_testing(args):
-    tokenizer = get_tokenizer(args)
+def run_metrics(args, model, tokenizer, model_id):
     samples_path = get_samples_path(args)
     prompts, samples = read_samples(
         samples_path=samples_path,
     )
 
     # Evaluate each model revision
+    metrics_path = get_metrics_path(args, model_id=model_id)
+    with thing_exists_lock(path=metrics_path, thing_exists_fn=file_exists) as thing_exists:
+        if thing_exists:
+            print("Metrics already exist, skipping evaluation")
+        else:
+            print(f"Evaluating model {model_id+1}/3")
+            _, metrics = evaluate_model(
+                model=model,
+                tokenizer=tokenizer,
+                texts=samples,
+                metric=experiment_metric,
+                prompts=prompts,
+                batch_size=1,
+            )
+            write_metrics(metrics_path=metrics_path, metrics=metrics)
+
+
+def run_testing(args):
+    # Evaluate each model revision
     revision_metrics = []
     for model_id in range(3):
         metrics_path = get_metrics_path(args, model_id=model_id)
-        with thing_exists_lock(path=metrics_path, thing_exists_fn=file_exists) as thing_exists:
-            if thing_exists:
-                print("Metrics already exist, skipping evaluation")
-            else:
-                print(f"Evaluating model {model_id+1}/3")
-                tmp_model = get_model(args, model_id=model_id)
-
-                _, metrics = evaluate_model(
-                    model=tmp_model,
-                    tokenizer=tokenizer,
-                    texts=samples,
-                    metric=experiment_metric,
-                    prompts=prompts,
-                    batch_size=1,
-                )
-                write_metrics(metrics_path=metrics_path, metrics=metrics)
-
         metrics = read_metrics(metrics_path=metrics_path)
         revision_metrics.append(np.mean(metrics))
 
@@ -195,7 +197,7 @@ def run_testing(args):
     return z_score, revision_metrics
 
 
-def run_sampling(args):
+def run_sampling(args, model, tokenizer):
     samples_path = get_samples_path(args)
     with thing_exists_lock(path=samples_path, thing_exists_fn=file_exists) as thing_exists:
         if thing_exists:
@@ -211,14 +213,6 @@ def run_sampling(args):
                 prompts = get_sampling_prompts(args, seed=args.sampling_seed, n_sample=args.n_sample)
             else:
                 prompts = [args.prompt] * args.n_sample
-            
-            tokenizer = AutoTokenizer.from_pretrained(args.model_name)
-            model = AutoModelForCausalLM.from_pretrained(
-                args.model_name, 
-                revision=args.revision_template.format(revision_id=args.sampling_model_id+1)
-                )
-            model = model.to('cuda')
-            model.eval()
 
             # Generate completions using model checkpoint
             print("Generating samples from model...")
@@ -241,30 +235,66 @@ def experiment_metric(tokenized_text, prediction, tokenized_prompt):
     return sum(prediction[len(tokenized_prompt):]).item()
 
 
+def build_args(base_args, sweep_config):
+    args = argparse.Namespace(**base_args.__dict__)
+    for k, v in sweep_config.items():
+        setattr(args, k, v)
+
+    return args
+
+
 def main():
     parser = argparse.ArgumentParser()
     
     parser.add_argument("--save_dir", type=str, required=True)
     parser.add_argument("--model_size", type=str, default="1B")
     parser.add_argument("--sampling_model_id", type=int, default=0)
-    parser.add_argument("--n_sample", type=int, default=100)
-    parser.add_argument("--sampling_seed", type=int, default=0)
-    parser.add_argument("--temperature", type=float, default=1.0)
     parser.add_argument("--max_tokens", type=int, default=32)
     parser.add_argument("--prompt", type=str, default=None)
 
-    args = parser.parse_args()
+    base_args = parser.parse_args()
 
-    assert args.model_size in MODEL_NAME_DICT.keys()
-    args.model_name = MODEL_NAME_DICT[args.model_size]
-    args.revision_template = REVISION_TEMPLATE_DICT[args.model_size]
+    assert base_args.model_size in MODEL_NAME_DICT.keys()
+    base_args.model_name = MODEL_NAME_DICT[base_args.model_size]
+    base_args.revision_template = REVISION_TEMPLATE_DICT[base_args.model_size]
 
-    run_sampling(args)
-    z_score, _ = run_testing(args)
+    tokenizer = get_tokenizer(base_args)
 
-    experiment_log = {"z_score": z_score, "args": args}
-    experiment_log_path = get_experiment_log_path(args)
-    write_experiment_log(experiment_log_path=experiment_log_path, experiment_log=experiment_log)
+    sweep_configs = {
+        "n_sample": [1, 5, 10, 100, 200, 500, 1000],
+        "sampling_seed": list(range(10)),
+        "temperature": [1.0],
+    }
+
+    param_names = list(sweep_configs.keys())
+    param_values = [sweep_configs[name] for name in param_names]
+    param_combinations = list(itertools.product(*param_values))
+
+    model = get_model(base_args, model_id=base_args.sampling_model_id)
+    model.to('cuda'); model.eval()
+    for _, params in enumerate(param_combinations):
+        sweep_config = dict(zip(param_names, params))
+        args = build_args(base_args, sweep_config)
+
+        run_sampling(args, model, tokenizer)
+
+    for model_id in range(3):
+        model = get_model(base_args, model_id=model_id)
+        model.to('cuda'); model.eval()
+        for _, params in enumerate(param_combinations):
+            sweep_config = dict(zip(param_names, params))
+            args = build_args(base_args, sweep_config)
+            run_metrics(args, model, tokenizer, model_id)
+
+    for _, params in enumerate(param_combinations):
+        sweep_config = dict(zip(param_names, params))
+        args = build_args(base_args, sweep_config)
+
+        z_score, _ = run_testing(args)
+
+        experiment_log = {"z_score": z_score, "args": args}
+        experiment_log_path = get_experiment_log_path(args)
+        write_experiment_log(experiment_log_path=experiment_log_path, experiment_log=experiment_log)
 
     if dist.is_initialized():
         dist.destroy_process_group()
