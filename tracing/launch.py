@@ -9,12 +9,13 @@ def args_to_string(args : dict[str, Any]):
 def build_cmd(
     args : dict[str, Any], 
     slurm_prefix="nlprun -g 1 -d a6000",
-    python_prefix="uv run python ./scripts/observation/tinystories.py",
+    run_prefix="uv run",
+    script="./scripts/observation/tinystories.py",
     log_path=None,
 ):
     cmd_args = args_to_string(args)
     log_str = f"-o {log_path} " if log_path is not None else ""
 
-    cmd = f"{slurm_prefix} {log_str}'{python_prefix} {cmd_args}'"
+    cmd = f"{slurm_prefix} {log_str}'{run_prefix} {script} {cmd_args}'"
 
     return cmd

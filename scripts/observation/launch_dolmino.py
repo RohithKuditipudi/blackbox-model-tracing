@@ -42,7 +42,7 @@ def main():
         cmd = build_cmd(
             args=dict(zip(param_names, params)), 
             log_path=os.path.join(log_dir, f"job_{i}.out"),
-            python_prefix="uv run python ./scripts/observation/dolmino.py",
+            script="./scripts/observation/dolmino.py",
         )
 
         print(f"Launching experiment {i+1}/{len(param_combinations)}")
