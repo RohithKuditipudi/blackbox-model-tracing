@@ -81,12 +81,14 @@ def generate(prompts, model, tokenizer, sampling_params, prompt_template="{promp
 
 
 def get_samples_path(args):
-    samples_path = os.path.join(args.save_dir, "samples.txt")
+    experiment_hash = hash_args(args)
+    samples_path = os.path.join(args.save_dir, "texts", experiment_hash, "samples.txt")
 
     return samples_path
 
 def get_metrics_path(args, model_id):
-    metrics_path = os.path.join(args.save_dir, "metrics", f"model_{model_id}.pkl")
+    experiment_hash = hash_args(args)
+    metrics_path = os.path.join(args.save_dir, "metrics", experiment_hash, f"model_{model_id}.pkl")
 
     return metrics_path
 
