@@ -46,7 +46,7 @@ def main():
         print(f"Parameters: {dict(zip(param_names, params))}")
         print("Command:", cmd)
         if not args.dry_run:
-            subprocess.run(cmd, shell=True,check=True)
+            subprocess.run(cmd, shell=True, check=True)
 
 if __name__ == "__main__":
     main()
