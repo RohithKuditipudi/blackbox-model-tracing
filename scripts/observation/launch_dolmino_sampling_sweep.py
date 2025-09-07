@@ -18,7 +18,7 @@ def main():
 
     sweep_configs = {
         "save_dir": [args.save_dir],
-        "model_size": ["1B", "7B", "13B"],
+        "model_size": ["1B", "7B"],
         "sampling_model_id": list(range(3)),
         "max_tokens": [32],
     }
