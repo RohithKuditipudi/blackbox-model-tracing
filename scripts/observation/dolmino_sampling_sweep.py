@@ -263,7 +263,7 @@ def main():
     tokenizer = get_tokenizer(base_args)
 
     sweep_configs = {
-        "n_sample": [1, 5, 10, 100, 200, 500, 1000],
+        "n_sample": [1, 3, 5, 10, 20, 50, 100],
         "sampling_seed": list(range(10)),
         "temperature": [1.0],
     }
