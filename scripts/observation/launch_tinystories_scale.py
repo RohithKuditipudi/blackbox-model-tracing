@@ -9,8 +9,8 @@ def main():
     parser = argparse.ArgumentParser(description="Sweep TinyStories experiment parameters and launch jobs.")
 
     parser.add_argument("--save_dir", type=str, required=True)
-    parser.add_argument("--script", type=str, default="./scripts/observation/dolmino_sampling_sweep.py")
-    parser.add_argument("--log_dir", type=str, default="./slurm_logs_sweep")
+    parser.add_argument("--script", type=str, default="./scripts/observation/tinystories.py")
+    parser.add_argument("--log_dir", type=str, default="./slurm_logs")
     parser.add_argument("--num_jobs", type=int, default=10000)
     parser.add_argument("--start_job", type=int, default=0)
     parser.add_argument("--dry_run", action="store_true", help="Print commands without running them.")
@@ -19,9 +19,19 @@ def main():
 
     sweep_configs = {
         "save_dir": [args.save_dir],
-        "model_size": ["1B", "7B"],
-        "sampling_model_id": list(range(3)),
-        "max_tokens": [32],
+        "n_partial_0": [450000],
+        "n_base": [500000],
+        "seed": [42],
+        "num_partial_models": [5],
+        "partial_model_index": list(range(5)),
+        "num_shuffles": [10],
+        "n_finetune": [0, 100, 1000, 5000, 10000, 20000, 50000],
+        "n_sample": [10, 100, 1000, 5000, 10000],
+        "sampling_seed": list(range(10)),
+        "finetune_on_test": ["true", "false"],
+        "hidden_size": 512,
+        "intermediate_size": 1024,
+        "num_hidden_layers": 8,
     }
 
     param_names = list(sweep_configs.keys())
@@ -47,7 +57,7 @@ def main():
         print(f"Parameters: {dict(zip(param_names, params))}")
         print("Command:", cmd)
         if not args.dry_run:
-            subprocess.run(cmd, shell=True, check=True)
+            subprocess.run(cmd, shell=True,check=True)
 
 if __name__ == "__main__":
     main()

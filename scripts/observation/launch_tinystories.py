@@ -9,6 +9,7 @@ def main():
     parser = argparse.ArgumentParser(description="Sweep TinyStories experiment parameters and launch jobs.")
 
     parser.add_argument("--save_dir", type=str, required=True)
+    parser.add_argument("--script", type=str, default="./scripts/observation/tinystories.py")
     parser.add_argument("--log_dir", type=str, default="./slurm_logs")
     parser.add_argument("--num_jobs", type=int, default=10000)
     parser.add_argument("--start_job", type=int, default=0)
@@ -43,7 +44,11 @@ def main():
 
     for i, params in enumerate(param_combinations[args.start_job:args.start_job+args.num_jobs]):
 
-        cmd = build_cmd(args=dict(zip(param_names, params)), log_path=os.path.join(log_dir, f"job_{i}.out"))
+        cmd = build_cmd(
+            args=dict(zip(param_names, params)), 
+            log_path=os.path.join(log_dir, f"job_{i}.out"),
+            script=args.script,
+        )
 
         print(f"Launching experiment {i+1}/{len(param_combinations)}")
         print(f"Parameters: {dict(zip(param_names, params))}")
