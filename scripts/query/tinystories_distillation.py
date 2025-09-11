@@ -454,7 +454,7 @@ if __name__ == "__main__":
     parser.add_argument('--num_attention_heads', type=int, default=8, help='Number of attention heads')
     parser.add_argument('--max_position_embeddings', type=int, default=512, help='Maximum position embeddings')
     parser.add_argument('--learning_rate', type=float, default=1e-5, help='Learning rate')
-    parser.add_argument('--include_hash', action='store_true', help='Include hash in save directory')
+    parser.add_argument("--include_hash", type=str, default="false")
 
     args = parser.parse_args()
 
