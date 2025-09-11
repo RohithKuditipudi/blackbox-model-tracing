@@ -32,26 +32,48 @@ def update_experiment_args(args):
     args.distillation_model_path = get_distillation_checkpoint_path(args, args.distillation_checkpoint_idx)
 
 
-def get_training_args(args):
-    training_args = argparse.Namespace()
+def get_teacher_training_args(args):
+    teacher_training_args = argparse.Namespace()
 
-    training_args.save_dir = args.save_dir
-    training_args.git_hash = args.git_hash
-    training_args.seed = args.seed
+    teacher_training_args.save_dir = args.save_dir
+    teacher_training_args.git_hash = args.git_hash
+    teacher_training_args.seed = args.seed
 
-    training_args.batch_size = args.batch_size
-    training_args.learning_rate = args.learning_rate
+    teacher_training_args.batch_size = args.batch_size
+    teacher_training_args.learning_rate = args.learning_rate
 
-    training_args.n_teacher = args.n_teacher
-    training_args.num_teacher_checkpoints = args.num_teacher_checkpoints
+    teacher_training_args.n_teacher = args.n_teacher
+    teacher_training_args.num_teacher_checkpoints = args.num_teacher_checkpoints
 
-    training_args.hidden_size = args.hidden_size
-    training_args.intermediate_size = args.intermediate_size
-    training_args.num_hidden_layers = args.num_hidden_layers
-    training_args.num_attention_heads = args.num_attention_heads
-    training_args.max_position_embeddings = args.max_position_embeddings
+    teacher_training_args.hidden_size = args.hidden_size
+    teacher_training_args.intermediate_size = args.intermediate_size
+    teacher_training_args.num_hidden_layers = args.num_hidden_layers
+    teacher_training_args.num_attention_heads = args.num_attention_heads
+    teacher_training_args.max_position_embeddings = args.max_position_embeddings
 
-    return training_args
+    return teacher_training_args
+
+
+def get_student_training_args(args):
+    student_training_args = argparse.Namespace()
+
+    student_training_args.save_dir = args.save_dir
+    student_training_args.git_hash = args.git_hash
+    student_training_args.seed = args.seed
+    
+    student_training_args.batch_size = args.batch_size
+    student_training_args.learning_rate = args.learning_rate
+
+    student_training_args.n_student = args.n_student
+    student_training_args.num_student_checkpoints = args.num_student_checkpoints
+
+    student_training_args.hidden_size = args.hidden_size
+    student_training_args.intermediate_size = args.intermediate_size
+    student_training_args.num_hidden_layers = args.num_hidden_layers
+    student_training_args.num_attention_heads = args.num_attention_heads
+    student_training_args.max_position_embeddings = args.max_position_embeddings
+
+    return student_training_args
 
 
 def get_distillation_args(args):
@@ -174,26 +196,26 @@ def get_default_optimizer_params(args):
 
 
 def get_teacher_checkpoint_path(args, checkpoint_idx):
-    training_args = get_training_args(args)
+    teacher_training_args = get_teacher_training_args(args)
 
-    training_hash = hash_args(training_args)
+    teacher_training_hash = hash_args(teacher_training_args)
     teacher_checkpoint_path = os.path.join(
         args.save_dir, 
         "teacher_models", 
-        training_hash, 
+        teacher_training_hash, 
         f"checkpoint_{checkpoint_idx}"
     )
 
     return teacher_checkpoint_path
 
 def get_student_checkpoint_path(args, checkpoint_idx):
-    distillation_args = get_distillation_args(args)
+    student_training_args = get_student_training_args(args)
 
-    distillation_hash = hash_args(distillation_args)
+    student_training_hash = hash_args(student_training_args)
     student_checkpoint_path = os.path.join(
         args.save_dir, 
-        "student_models", 
-        distillation_hash, 
+        "student_models",
+        student_training_hash, 
         f"checkpoint_{checkpoint_idx}"
     )
 
@@ -249,9 +271,9 @@ def write_experiment_log(experiment_log_path, experiment_log):
         pickle.dump(experiment_log, f)
 
 
-def run_training(args):
+def run_teacher_training(args):
     tokenizer = get_tokenizer()
-    training_texts = get_teacher_training_texts(args)
+    texts = get_teacher_training_texts(args)
 
     config = LlamaConfig(
         vocab_size=tokenizer.vocab_size,
@@ -288,7 +310,7 @@ def run_training(args):
                 )
 
                 train_model(
-                    texts=training_texts[:n_checkpoint][:-interval_size],
+                    texts=texts[:n_checkpoint][:-interval_size],
                     config=config,
                     tokenizer=tokenizer,
                     save_path=teacher_checkpoint_path,
@@ -301,15 +323,11 @@ def run_training(args):
                 )
                 model, optimizer = load_model_and_optimizer(teacher_checkpoint_path)
             wandb.finish()
-    
 
-def run_distillation(args):
+
+def run_student_training(args):
     tokenizer = get_tokenizer()
-    training_texts = get_student_training_texts(args)
-    distillation_texts = get_distillation_texts(args)
-
-    teacher_model_path = args.teacher_model_path
-    teacher_model, _ = load_model_and_optimizer(teacher_model_path)
+    texts = get_student_training_texts(args)
 
     config = LlamaConfig(
         vocab_size=tokenizer.vocab_size,
@@ -344,7 +362,7 @@ def run_distillation(args):
                     checkpoint_idx=i
                 )
                 train_model(
-                    texts=training_texts[:n_checkpoint][:-interval_size],
+                    texts=texts[:n_checkpoint][:-interval_size],
                     config=config,
                     tokenizer=tokenizer,
                     save_path=student_checkpoint_path,
@@ -357,6 +375,13 @@ def run_distillation(args):
                 )
                 model, optimizer = load_model_and_optimizer(student_checkpoint_path)
             wandb.finish()
+    
+
+def run_distillation(args):
+    tokenizer = get_tokenizer()
+    texts = get_distillation_texts(args)
+
+    teacher_model, _ = load_model_and_optimizer(args.teacher_model_path)
 
     final_distillation_checkpoint_path = get_distillation_checkpoint_path(
         args, 
@@ -377,15 +402,13 @@ def run_distillation(args):
                 interval_size = get_interval_size(n_train=args.n_distill, num_checkpoints=args.num_distillation_checkpoints)
                 distill_model(
                     teacher_model=teacher_model,
-                    texts=distillation_texts,
-                    config=config,
+                    texts=texts,
                     tokenizer=tokenizer,
                     save_path=distillation_checkpoint_path,
                     batch_size=args.batch_size,
                     num_samples=interval_size,
                     temperature=args.temperature,
                     hard_targets=args.hard_targets,
-                    optimizer_params=optimizer_params,
                     student_model=model,
                     optimizer=optimizer,
                 )
@@ -461,8 +484,11 @@ if __name__ == "__main__":
     update_experiment_args(args)
     validate_experiment_args(args)
 
-    training_args = get_training_args(args)
-    run_training(training_args)
+    teacher_training_args = get_teacher_training_args(args)
+    run_teacher_training(teacher_training_args)
+
+    student_training_args = get_student_training_args(args)
+    run_student_training(student_training_args)
 
     distillation_args = get_distillation_args(args)
     run_distillation(distillation_args)

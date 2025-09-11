@@ -144,7 +144,6 @@ def train_model(
 def distill_model(
     teacher_model, 
     texts, 
-    config, 
     tokenizer, 
     save_path,
     batch_size=1,  
@@ -152,6 +151,7 @@ def distill_model(
     temperature=1.0, 
     hard_targets=False,
     optimizer_params=None,
+    config=None, 
     student_model=None,
     optimizer=None,
 ):
