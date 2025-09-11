@@ -117,6 +117,7 @@ def get_testing_args(args):
 
     testing_args.batch_size = args.batch_size
 
+    testing_args.n_teacher = args.n_teacher
     testing_args.n_test = args.n_test
 
     testing_args.distillation_model_path = args.distillation_model_path
@@ -394,9 +395,9 @@ def run_distillation(args):
         thing_exists_fn=model_exists
     ) as thing_exists:
         if thing_exists:
-            print("Student model already exists, skipping distillation")
+            print("Distillation model already exists, skipping distillation")
         else:
-            print("Distilling student model...")
+            print("Distilling teacher model into student model...")
             wandb.init(project="tinystories-distillation", name=f"distillation_model")
             model, optimizer = load_model_and_optimizer(args.student_model_path)
             for i in range(args.num_distillation_checkpoints):
