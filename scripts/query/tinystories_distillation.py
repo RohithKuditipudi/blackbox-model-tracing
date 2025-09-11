@@ -64,6 +64,7 @@ def get_student_training_args(args):
     student_training_args.batch_size = args.batch_size
     student_training_args.learning_rate = args.learning_rate
 
+    student_training_args.n_teacher = args.n_teacher
     student_training_args.n_student = args.n_student
     student_training_args.num_student_checkpoints = args.num_student_checkpoints
 
@@ -85,7 +86,8 @@ def get_distillation_args(args):
 
     distillation_args.batch_size = args.batch_size
     distillation_args.learning_rate = args.learning_rate
-
+    
+    distillation_args.n_teacher = args.n_teacher
     distillation_args.n_student = args.n_student
     distillation_args.n_distill = args.n_distill
     distillation_args.num_student_checkpoints = args.num_student_checkpoints
@@ -168,7 +170,7 @@ def get_distillation_texts(args):
     random.seed(args.seed)
     random.shuffle(texts)
 
-    return texts[args.n_student:args.n_student+args.n_distill]
+    return texts[args.n_teacher+args.n_student:args.n_teacher+args.n_student+args.n_distill]
 
 
 def get_dataset():
