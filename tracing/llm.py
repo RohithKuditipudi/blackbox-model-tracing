@@ -145,7 +145,7 @@ def distill_model(
     teacher_model, 
     texts, 
     tokenizer, 
-    save_path,
+    save_path=None,
     batch_size=1,  
     num_samples=None,
     temperature=1.0, 
@@ -211,9 +211,10 @@ def distill_model(
             "epoch": 0,
         })
         
-        # Save checkpoint after each epoch
+    if save_path is not None:
         student_model.save_pretrained(os.path.join(save_path, f'epoch-{0}'))
         tokenizer.save_pretrained(os.path.join(save_path, f'epoch-{0}'))
+        torch.save(optimizer.state_dict(), os.path.join(save_path, f'epoch-{0}', "optimizer.pt"))
     
     return student_model, optimizer
 
