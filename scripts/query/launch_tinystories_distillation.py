@@ -19,6 +19,18 @@ def main():
 
     sweep_configs = {
         "save_dir": [args.save_dir],
+        "n_teacher": [200000],
+        "n_student": [200000],
+        "n_distill": [200000],
+        "num_teacher_checkpoints": [10],
+        "num_student_checkpoints": [10],
+        "num_distillation_checkpoints": [10],
+        "teacher_checkpoint_idx": [9],
+        "student_checkpoint_idx": [9],
+        "distillation_checkpoint_idx": [9],
+        "temperature": [1.0],
+        "hard_targets": ["true"],
+        "n_test": [100000],
     }
 
     param_names = list(sweep_configs.keys())
