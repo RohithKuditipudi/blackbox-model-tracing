@@ -9,7 +9,7 @@ def args_to_string(args : dict[str, Any]):
 def build_cmd(
     args : dict[str, Any], 
     slurm_prefix="nlprun -g 1 -d a6000",
-    run_prefix="uv run",
+    run_prefix=".venv/bin/python",
     script="./scripts/observation/tinystories.py",
     log_path=None,
 ):
