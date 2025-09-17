@@ -29,9 +29,9 @@ def main():
         "n_sample": [10, 100, 1000, 5000, 10000],
         "sampling_seed": list(range(10)),
         "finetune_on_test": ["true", "false"],
-        "hidden_size": 512,
-        "intermediate_size": 1024,
-        "num_hidden_layers": 8,
+        "hidden_size": [512],
+        "intermediate_size": [1024],
+        "num_hidden_layers": [8],
     }
 
     param_names = list(sweep_configs.keys())
