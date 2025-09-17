@@ -28,7 +28,7 @@ def main():
         "n_sample": [10, 100, 1000, 5000, 10000],
         "sampling_seed": list(range(10)),
         "finetune_on_test": ["true", "false"],
-        "null_model_path": [None], # TODO: add null model path
+        "null_model_path": ["./null-models/tinystories/default"],
     }
 
     param_names = list(sweep_configs.keys())
