@@ -26,7 +26,7 @@ def validate_experiment_args(args):
 def update_experiment_args(args):
     args.hard_targets = str_to_bool(args.hard_targets)
     args.include_hash = str_to_bool(args.include_hash)
-    
+
     args.git_hash = get_git_revision_hash() if args.include_hash else None
 
     args.teacher_model_path = get_teacher_checkpoint_path(args, args.teacher_checkpoint_idx)
@@ -315,7 +315,7 @@ def run_teacher_training(args):
                 )
 
                 train_model(
-                    texts=texts[:n_checkpoint][:-interval_size],
+                    texts=texts[:n_checkpoint][-interval_size:],
                     config=config,
                     tokenizer=tokenizer,
                     save_path=teacher_checkpoint_path,
@@ -367,7 +367,7 @@ def run_student_training(args):
                     checkpoint_idx=i
                 )
                 train_model(
-                    texts=texts[:n_checkpoint][:-interval_size],
+                    texts=texts[:n_checkpoint][-interval_size:],
                     config=config,
                     tokenizer=tokenizer,
                     save_path=student_checkpoint_path,
@@ -447,7 +447,7 @@ def run_testing(args):
     subsampled_indices = random.sample(range(len(teacher_training_texts)), args.n_test)
     subsampled_metrics = [metrics[i] for i in subsampled_indices]
 
-    p_value = scp.stats.spearmanr(subsampled_metrics, subsampled_indices)
+    _, p_value = scp.stats.spearmanr(subsampled_metrics, subsampled_indices)
 
     return p_value
 
