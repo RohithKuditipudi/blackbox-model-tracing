@@ -10,7 +10,7 @@ import scipy as scp
 
 from vllm import SamplingParams
 
-from tracing.llm import train_model, evaluate_model, load_model_and_optimizer, model_exists, distill_model, generate
+from tracing.llm import train_model, evaluate_model, load_model_and_optimizer, model_exists, generate
 from tracing.utils import get_git_revision_hash, thing_exists_lock, file_exists, str_to_bool
 
 import torch.distributed as dist
@@ -495,17 +495,15 @@ def run_distillation(args):
 
 
 def run_testing(args):
-    metrics_path = get_metrics_path(args)
+    tokenizer = get_tokenizer()
+    teacher_training_texts = get_teacher_training_texts(args)
 
+    metrics_path = get_metrics_path(args)
     with thing_exists_lock(path=metrics_path, thing_exists_fn=file_exists) as thing_exists:
         if thing_exists:
             print("Shuffle metrics already exists, skipping to z-score calculation")
         else:
-            tokenizer = get_tokenizer()
-            teacher_training_texts = get_teacher_training_texts(args)
-            
             distillation_model, _ = load_model_and_optimizer(args.distillation_model_path)
-
             _, metrics = evaluate_model(
                 model=distillation_model,
                 tokenizer=tokenizer,
@@ -537,9 +535,9 @@ if __name__ == "__main__":
     parser.add_argument('--save_dir', type=str, required=True, help='Directory to save model')
     parser.add_argument('--seed', type=int, default=0, help='Random seed')
     parser.add_argument('--batch_size', type=int, default=4, help='Batch size')
-    parser.add_argument('--n_teacher', type=int, default=1, help='Number of training samples')
-    parser.add_argument('--n_student', type=int, default=1, help='Number of student samples')
-    parser.add_argument('--n_distill', type=int, default=1, help='Number of distillation samples')
+    parser.add_argument('--n_teacher', type=int, default=8, help='Number of training samples')
+    parser.add_argument('--n_student', type=int, default=8, help='Number of student samples')
+    parser.add_argument('--n_distill', type=int, default=8, help='Number of distillation samples')
     parser.add_argument('--num_teacher_checkpoints', type=int, default=1, help='Number of teacher checkpoints')
     parser.add_argument('--num_student_checkpoints', type=int, default=1, help='Number of student checkpoints')
     parser.add_argument('--num_distillation_checkpoints', type=int, default=1, help='Number of distillation checkpoints')
@@ -549,6 +547,7 @@ if __name__ == "__main__":
     parser.add_argument('--temperature', type=float, default=1.0, help='Distillation temperature')
     parser.add_argument('--sampling_seed', type=int, default=0, help='Sampling seed')
     parser.add_argument('--prompt', type=str, default=None, help='Prompt')
+    parser.add_argument('--max_tokens', type=int, default=64, help='Maximum tokens')
     parser.add_argument('--n_test', type=int, default=1, help='Number of test samples')
     parser.add_argument('--hidden_size', type=int, default=256, help='Hidden size')
     parser.add_argument('--intermediate_size', type=int, default=512, help='Intermediate size')
