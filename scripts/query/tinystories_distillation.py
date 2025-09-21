@@ -113,8 +113,9 @@ def get_distillation_args(args):
     distillation_args.learning_rate = args.learning_rate
 
     distillation_args.student_model_path = args.student_model_path
-    distillation_args.num_distillation_checkpoints = args.num_distillation_checkpoints
 
+    distillation_args.n_distill = args.n_distill
+    distillation_args.num_distillation_checkpoints = args.num_distillation_checkpoints
     distillation_args.distillation_texts_path = args.distillation_texts_path
 
     return distillation_args
