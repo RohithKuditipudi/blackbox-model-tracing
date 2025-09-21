@@ -8,7 +8,9 @@ import pickle
 import hashlib
 import scipy as scp
 
-from tracing.llm import train_model, evaluate_model, load_model_and_optimizer, model_exists, distill_model
+from vllm import SamplingParams
+
+from tracing.llm import train_model, evaluate_model, load_model_and_optimizer, model_exists, distill_model, generate
 from tracing.utils import get_git_revision_hash, thing_exists_lock, file_exists, str_to_bool
 
 import torch.distributed as dist
@@ -24,14 +26,14 @@ def validate_experiment_args(args):
 
 
 def update_experiment_args(args):
-    args.hard_targets = str_to_bool(args.hard_targets)
     args.include_hash = str_to_bool(args.include_hash)
-
     args.git_hash = get_git_revision_hash() if args.include_hash else None
 
     args.teacher_model_path = get_teacher_checkpoint_path(args, args.teacher_checkpoint_idx)
     args.student_model_path = get_student_checkpoint_path(args, args.student_checkpoint_idx)
     args.distillation_model_path = get_distillation_checkpoint_path(args, args.distillation_checkpoint_idx)
+
+    args.distillation_texts_path = get_distillation_texts_path(args)
 
 
 def get_teacher_training_args(args):
@@ -79,6 +81,27 @@ def get_student_training_args(args):
     return student_training_args
 
 
+def get_teacher_sampling_args(args):
+    teacher_sampling_args = argparse.Namespace()
+
+    teacher_sampling_args.save_dir = args.save_dir
+    teacher_sampling_args.git_hash = args.git_hash
+    teacher_sampling_args.seed = args.seed
+
+    teacher_sampling_args.n_teacher = args.n_teacher
+    teacher_sampling_args.n_student = args.n_student
+    teacher_sampling_args.n_distill = args.n_distill
+
+    teacher_sampling_args.teacher_model_path = args.teacher_model_path
+    
+    teacher_sampling_args.temperature = args.temperature
+    teacher_sampling_args.max_tokens = args.max_tokens
+    teacher_sampling_args.prompt = args.prompt
+    teacher_sampling_args.sampling_seed = args.sampling_seed
+
+    return teacher_sampling_args
+
+
 def get_distillation_args(args):
     distillation_args = argparse.Namespace()
     
@@ -88,24 +111,11 @@ def get_distillation_args(args):
 
     distillation_args.batch_size = args.batch_size
     distillation_args.learning_rate = args.learning_rate
-    
-    distillation_args.n_teacher = args.n_teacher
-    distillation_args.n_student = args.n_student
-    distillation_args.n_distill = args.n_distill
-    distillation_args.num_student_checkpoints = args.num_student_checkpoints
+
+    distillation_args.student_model_path = args.student_model_path
     distillation_args.num_distillation_checkpoints = args.num_distillation_checkpoints
 
-    distillation_args.hidden_size = args.hidden_size
-    distillation_args.intermediate_size = args.intermediate_size
-    distillation_args.num_hidden_layers = args.num_hidden_layers
-    distillation_args.num_attention_heads = args.num_attention_heads
-    distillation_args.max_position_embeddings = args.max_position_embeddings
-
-    distillation_args.teacher_model_path = args.teacher_model_path
-    distillation_args.student_model_path = args.student_model_path
-    
-    distillation_args.temperature = args.temperature
-    distillation_args.hard_targets = args.hard_targets
+    distillation_args.distillation_texts_path = args.distillation_texts_path
 
     return distillation_args
 
@@ -163,6 +173,10 @@ def get_student_training_texts(args):
 
 
 def get_distillation_texts(args):
+    return read_texts(args.distillation_texts_path)
+
+
+def get_sampling_prompts(args, length=20):
     dataset = get_dataset()
 
     # Pepare distillation texts
@@ -173,7 +187,23 @@ def get_distillation_texts(args):
     random.seed(args.seed)
     random.shuffle(texts)
 
-    return texts[args.n_teacher+args.n_student:args.n_teacher+args.n_student+args.n_distill]
+    tokenizer = get_tokenizer()
+
+    prompts = [
+        tokenizer.decode(tokenizer.encode(text)[:length]) 
+        for text in texts[args.n_teacher+args.n_student:args.n_teacher+args.n_student+args.n_distill]
+    ]
+
+    return prompts
+
+
+def get_distillation_texts_path(args):
+    teacher_sampling_args = get_teacher_sampling_args(args)
+
+    teacher_sampling_hash = hash_args(teacher_sampling_args)
+    distillation_texts_path = os.path.join(args.save_dir, "texts", teacher_sampling_hash, "distillation_texts.txt")
+
+    return distillation_texts_path
 
 
 def get_dataset():
@@ -255,6 +285,19 @@ def get_experiment_log_path(args):
     experiment_log_path = os.path.join(args.save_dir, "experiment_logs", experiment_hash, "log.pkl")
 
     return experiment_log_path
+
+
+def write_texts(texts_path, texts):
+    os.makedirs(os.path.dirname(texts_path), exist_ok=True)
+    with open(texts_path, "wb") as f:
+        pickle.dump(texts, f)
+
+
+def read_texts(texts_path):
+    with open(texts_path, "rb") as f:
+        texts = pickle.load(f)
+
+    return texts
 
 
 def write_metrics(metrics_path, metrics):
@@ -380,13 +423,41 @@ def run_student_training(args):
                 )
                 model, optimizer = load_model_and_optimizer(student_checkpoint_path)
             wandb.finish()
-    
+
+
+def run_teacher_sampling(args):
+    # Configure sampling parameters
+    sampling_params = {
+        "temperature": args.temperature,
+        "max_tokens": args.max_tokens,
+    }
+
+    prompts = get_sampling_prompts(args)
+
+    distillation_texts_path = get_distillation_texts_path(args)
+    with thing_exists_lock(path=distillation_texts_path, thing_exists_fn=file_exists) as thing_exists:
+        if thing_exists:
+            print("Teacher samples already exist, skipping sampling")
+        else:
+            # Generate completions using model checkpoint
+            print("Generating samples from model...")
+            completions = generate(
+                prompts=prompts,
+                model_checkpoint_path=os.path.join(args.teacher_model_path, "epoch-0"),
+                sampling_params=SamplingParams(**sampling_params),
+                seed=args.sampling_seed,
+            )
+            distillation_texts = [prompt + completion for prompt, completion in zip(prompts, completions)]
+
+            # Save generated texts
+            write_texts(texts_path=distillation_texts_path, texts=distillation_texts)
+            print(f"Saved {len(distillation_texts)} texts to {distillation_texts_path}")
+
 
 def run_distillation(args):
+    # Load distillation texts to start distillation
     tokenizer = get_tokenizer()
     texts = get_distillation_texts(args)
-
-    teacher_model, _ = load_model_and_optimizer(args.teacher_model_path)
 
     final_distillation_checkpoint_path = get_distillation_checkpoint_path(
         args, 
@@ -404,17 +475,19 @@ def run_distillation(args):
             model, optimizer = load_model_and_optimizer(args.student_model_path)
             for i in range(args.num_distillation_checkpoints):
                 distillation_checkpoint_path = get_distillation_checkpoint_path(args, checkpoint_idx=i)
-                interval_size = get_interval_size(n_train=args.n_distill, num_checkpoints=args.num_distillation_checkpoints)
-                distill_model(
-                    teacher_model=teacher_model,
-                    texts=texts,
+                n_checkpoint, interval_size = get_n_checkpoint(
+                    n_train=args.n_distill,
+                    num_checkpoints=args.num_distillation_checkpoints,
+                    checkpoint_idx=i
+                )
+                train_model(
+                    texts=texts[:n_checkpoint][-interval_size:],
                     tokenizer=tokenizer,
                     save_path=distillation_checkpoint_path,
                     batch_size=args.batch_size,
-                    num_samples=interval_size,
-                    temperature=args.temperature,
-                    hard_targets=args.hard_targets,
-                    student_model=model,
+                    epochs=1,
+                    shuffle=False,
+                    model=model,
                     optimizer=optimizer,
                 )
                 model, optimizer = load_model_and_optimizer(distillation_checkpoint_path)
@@ -474,7 +547,8 @@ if __name__ == "__main__":
     parser.add_argument('--student_checkpoint_idx', type=int, default=0, help='Student checkpoint index')
     parser.add_argument('--distillation_checkpoint_idx', type=int, default=0, help='Distillation checkpoint index')
     parser.add_argument('--temperature', type=float, default=1.0, help='Distillation temperature')
-    parser.add_argument('--hard_targets', type=str, default="true", help='Use hard targets')
+    parser.add_argument('--sampling_seed', type=int, default=0, help='Sampling seed')
+    parser.add_argument('--prompt', type=str, default=None, help='Prompt')
     parser.add_argument('--n_test', type=int, default=1, help='Number of test samples')
     parser.add_argument('--hidden_size', type=int, default=256, help='Hidden size')
     parser.add_argument('--intermediate_size', type=int, default=512, help='Intermediate size')
@@ -494,6 +568,9 @@ if __name__ == "__main__":
 
     student_training_args = get_student_training_args(args)
     run_student_training(student_training_args)
+
+    teacher_sampling_args = get_teacher_sampling_args(args)
+    run_teacher_sampling(teacher_sampling_args)
 
     distillation_args = get_distillation_args(args)
     run_distillation(distillation_args)
