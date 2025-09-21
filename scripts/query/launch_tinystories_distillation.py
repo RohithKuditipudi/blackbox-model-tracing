@@ -26,9 +26,9 @@ def main():
         "num_student_checkpoints": [10],
         "num_distillation_checkpoints": [10],
         "teacher_checkpoint_idx": [9],
-        "student_checkpoint_idx": [9],
-        "distillation_checkpoint_idx": list(range(10)),
-        "n_test": [100000],
+        "student_checkpoint_idx": [0, 9],
+        "distillation_checkpoint_idx": list(range(10))[::-1],
+        "n_test": [200000],
     }
 
     param_names = list(sweep_configs.keys())

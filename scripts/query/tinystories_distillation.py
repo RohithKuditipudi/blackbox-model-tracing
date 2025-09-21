@@ -35,6 +35,8 @@ def update_experiment_args(args):
     args.distillation_texts_path = get_distillation_texts_path(args)
     args.distillation_model_path = get_distillation_checkpoint_path(args, args.distillation_checkpoint_idx)
 
+    args.reference_model = str_to_bool(args.reference_model)
+
 
 def get_teacher_training_args(args):
     teacher_training_args = argparse.Namespace()
@@ -132,6 +134,7 @@ def get_testing_args(args):
 
     testing_args.n_teacher = args.n_teacher
     testing_args.n_test = args.n_test
+    testing_args.reference_model = args.reference_model
 
     testing_args.distillation_model_path = args.distillation_model_path
     
@@ -550,6 +553,7 @@ if __name__ == "__main__":
     parser.add_argument('--prompt', type=str, default=None, help='Prompt')
     parser.add_argument('--max_tokens', type=int, default=64, help='Maximum tokens')
     parser.add_argument('--n_test', type=int, default=1, help='Number of test samples')
+    parser.add_argument('--reference_model', type=str, default="false", help='Use reference model')
     parser.add_argument('--hidden_size', type=int, default=256, help='Hidden size')
     parser.add_argument('--intermediate_size', type=int, default=512, help='Intermediate size')
     parser.add_argument('--num_hidden_layers', type=int, default=4, help='Number of hidden layers')
