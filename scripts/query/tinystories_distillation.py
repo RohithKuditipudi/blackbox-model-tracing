@@ -31,9 +31,9 @@ def update_experiment_args(args):
 
     args.teacher_model_path = get_teacher_checkpoint_path(args, args.teacher_checkpoint_idx)
     args.student_model_path = get_student_checkpoint_path(args, args.student_checkpoint_idx)
-    args.distillation_model_path = get_distillation_checkpoint_path(args, args.distillation_checkpoint_idx)
 
     args.distillation_texts_path = get_distillation_texts_path(args)
+    args.distillation_model_path = get_distillation_checkpoint_path(args, args.distillation_checkpoint_idx)
 
 
 def get_teacher_training_args(args):
