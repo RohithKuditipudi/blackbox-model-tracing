@@ -28,8 +28,6 @@ def main():
         "teacher_checkpoint_idx": [9],
         "student_checkpoint_idx": [9],
         "distillation_checkpoint_idx": list(range(10)),
-        "temperature": [1.0],
-        "hard_targets": ["true"],
         "n_test": [100000],
     }
 

@@ -24,7 +24,9 @@ def validate_experiment_args(args):
 
 
 def update_experiment_args(args):
+    args.hard_targets = str_to_bool(args.hard_targets)
     args.include_hash = str_to_bool(args.include_hash)
+    
     args.git_hash = get_git_revision_hash() if args.include_hash else None
 
     args.teacher_model_path = get_teacher_checkpoint_path(args, args.teacher_checkpoint_idx)
@@ -472,7 +474,7 @@ if __name__ == "__main__":
     parser.add_argument('--student_checkpoint_idx', type=int, default=0, help='Student checkpoint index')
     parser.add_argument('--distillation_checkpoint_idx', type=int, default=0, help='Distillation checkpoint index')
     parser.add_argument('--temperature', type=float, default=1.0, help='Distillation temperature')
-    parser.add_argument('--hard_targets', action='store_true', help='Use hard targets')
+    parser.add_argument('--hard_targets', type=str, default="true", help='Use hard targets')
     parser.add_argument('--n_test', type=int, default=1, help='Number of test samples')
     parser.add_argument('--hidden_size', type=int, default=256, help='Hidden size')
     parser.add_argument('--intermediate_size', type=int, default=512, help='Intermediate size')
