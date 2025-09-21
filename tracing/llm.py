@@ -174,6 +174,9 @@ def distill_model(
     
     student_model.train()
     teacher_model.eval()
+
+    for k,v in optimizer.state.items():
+        optimizer.state[k] = put(v, device)
     
     sampler = RandomSampler(texts, num_samples=num_samples, replacement=True)
     train_dataloader = DataLoader(texts, sampler=sampler, batch_size=batch_size, shuffle=False)
