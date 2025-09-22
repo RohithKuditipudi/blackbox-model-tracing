@@ -156,7 +156,7 @@ def get_testing_args(args):
 
     testing_args.n_teacher = args.n_teacher
     testing_args.n_test = args.n_test
-    testing_args.reference_model = args.reference_model
+    testing_args.use_reference_model = args.use_reference_model
 
     testing_args.distillation_model_path = args.distillation_model_path
     testing_args.reference_model_path = args.reference_model_path
@@ -692,6 +692,9 @@ if __name__ == "__main__":
 
     student_training_args = get_student_training_args(args)
     run_student_training(student_training_args)
+
+    reference_training_args = get_reference_training_args(args)
+    run_reference_training(reference_training_args)
 
     teacher_sampling_args = get_teacher_sampling_args(args)
     run_teacher_sampling(teacher_sampling_args)
