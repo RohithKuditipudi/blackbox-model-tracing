@@ -31,11 +31,12 @@ def update_experiment_args(args):
 
     args.teacher_model_path = get_teacher_checkpoint_path(args, args.teacher_checkpoint_idx)
     args.student_model_path = get_student_checkpoint_path(args, args.student_checkpoint_idx)
+    args.reference_model_path = get_reference_checkpoint_path(args, args.student_checkpoint_idx)
 
     args.distillation_texts_path = get_distillation_texts_path(args)
     args.distillation_model_path = get_distillation_checkpoint_path(args, args.distillation_checkpoint_idx)
 
-    args.reference_model = str_to_bool(args.reference_model)
+    args.use_reference_model = str_to_bool(args.use_reference_model)
 
 
 def get_teacher_training_args(args):
@@ -81,6 +82,27 @@ def get_student_training_args(args):
     student_training_args.max_position_embeddings = args.max_position_embeddings
 
     return student_training_args
+
+
+def get_reference_training_args(args):
+    reference_training_args = argparse.Namespace()
+
+    reference_training_args.save_dir = args.save_dir
+    reference_training_args.git_hash = args.git_hash
+    reference_training_args.seed = args.seed
+
+    reference_training_args.batch_size = args.batch_size
+    reference_training_args.learning_rate = args.learning_rate
+
+    reference_training_args.n_teacher = args.n_teacher
+    reference_training_args.n_student = args.n_student
+    reference_training_args.num_student_checkpoints = args.num_student_checkpoints
+
+    reference_training_args.hidden_size = args.hidden_size
+    reference_training_args.intermediate_size = args.intermediate_size
+    reference_training_args.num_hidden_layers = args.num_hidden_layers
+    reference_training_args.num_attention_heads = args.num_attention_heads
+    reference_training_args.max_position_embeddings = args.max_position_embeddings
 
 
 def get_teacher_sampling_args(args):
@@ -137,6 +159,7 @@ def get_testing_args(args):
     testing_args.reference_model = args.reference_model
 
     testing_args.distillation_model_path = args.distillation_model_path
+    testing_args.reference_model_path = args.reference_model_path
     
     return testing_args
 
@@ -261,6 +284,20 @@ def get_student_checkpoint_path(args, checkpoint_idx):
     return student_checkpoint_path
 
 
+def get_reference_checkpoint_path(args, checkpoint_idx):
+    reference_training_args = get_reference_training_args(args)
+
+    reference_training_hash = hash_args(reference_training_args)
+    reference_checkpoint_path = os.path.join(
+        args.save_dir, 
+        "reference_models", 
+        reference_training_hash, 
+        f"checkpoint_{checkpoint_idx}"
+    )
+
+    return reference_checkpoint_path
+
+
 def get_distillation_checkpoint_path(args, checkpoint_idx):
     distillation_args = get_distillation_args(args)
 
@@ -280,6 +317,15 @@ def get_metrics_path(args):
 
     testing_hash = hash_args(testing_args)
     metrics_path = os.path.join(args.save_dir, "metrics", testing_hash, "metrics.pkl")
+
+    return metrics_path
+
+
+def get_reference_metrics_path(args):
+    testing_args = get_testing_args(args)
+
+    testing_hash = hash_args(testing_args)
+    metrics_path = os.path.join(args.save_dir, "metrics", testing_hash, "reference_metrics.pkl")
 
     return metrics_path
 
@@ -429,6 +475,61 @@ def run_student_training(args):
             wandb.finish()
 
 
+def run_reference_training(args):
+    tokenizer = get_tokenizer()
+    texts = get_student_training_texts(args)
+
+    random.seed(args.seed + 12345)
+    random.shuffle(texts) # train reference model on shuffled student training texts
+
+    config = LlamaConfig(
+        vocab_size=tokenizer.vocab_size,
+        hidden_size=args.hidden_size,
+        intermediate_size=args.intermediate_size,
+        num_hidden_layers=args.num_hidden_layers,
+        num_attention_heads=args.num_attention_heads,
+        max_position_embeddings=args.max_position_embeddings,
+        rms_norm_eps=1e-6,
+    )
+    optimizer_params = get_default_optimizer_params(args)
+
+    final_reference_checkpoint_path = get_reference_checkpoint_path(
+        args, 
+        checkpoint_idx=args.num_student_checkpoints-1
+    )
+    with thing_exists_lock(
+        path=final_reference_checkpoint_path, 
+        thing_exists_fn=model_exists
+    ) as thing_exists:
+        if thing_exists:
+            print("Reference model already exists, skipping training")
+        else:
+            print("Training reference model...")
+            wandb.init(project="tinystories-distillation", name=f"reference_model")
+            model, optimizer = None, None
+            for i in range(args.num_student_checkpoints):
+                reference_checkpoint_path = get_reference_checkpoint_path(args, checkpoint_idx=i)
+                n_checkpoint, interval_size = get_n_checkpoint(
+                    n_train=args.n_student, 
+                    num_checkpoints=args.num_student_checkpoints, 
+                    checkpoint_idx=i
+                )
+                train_model(
+                    texts=texts[:n_checkpoint][-interval_size:],
+                    config=config,
+                    tokenizer=tokenizer,
+                    save_path=reference_checkpoint_path,
+                    batch_size=args.batch_size,
+                    epochs=1,
+                    shuffle=False,
+                    optimizer_params=optimizer_params,
+                    model=model,
+                    optimizer=optimizer,
+                )
+                model, optimizer = load_model_and_optimizer(reference_checkpoint_path)
+            wandb.finish()
+
+
 def run_teacher_sampling(args):
     # Configure sampling parameters
     sampling_params = {
@@ -505,7 +606,7 @@ def run_testing(args):
     metrics_path = get_metrics_path(args)
     with thing_exists_lock(path=metrics_path, thing_exists_fn=file_exists) as thing_exists:
         if thing_exists:
-            print("Shuffle metrics already exists, skipping to z-score calculation")
+            print("Shuffle metrics already exists, skipping to p-value calculation")
         else:
             distillation_model, _ = load_model_and_optimizer(args.distillation_model_path)
             _, metrics = evaluate_model(
@@ -516,11 +617,30 @@ def run_testing(args):
                 batch_size=args.batch_size
             )
             write_metrics(metrics_path=metrics_path, metrics=metrics)
+    
+    reference_metrics_path = get_reference_metrics_path(args)
+    with thing_exists_lock(path=reference_metrics_path, thing_exists_fn=file_exists) as thing_exists:
+        if thing_exists or not args.use_reference_model:
+            print("Reference metrics already exists (or not used), skipping to p-value calculation")
+        else:
+            reference_model, _ = load_model_and_optimizer(args.reference_model_path)
+            _, reference_metrics = evaluate_model(
+                model=reference_model,
+                tokenizer=tokenizer,
+                texts=teacher_training_texts,
+                metric=experiment_metric,
+                batch_size=args.batch_size
+            )
+            write_metrics(metrics_path=reference_metrics_path, metrics=reference_metrics)
         
     metrics = read_metrics(metrics_path=metrics_path)
-
     subsampled_indices = random.sample(range(len(teacher_training_texts)), args.n_test)
-    subsampled_metrics = [metrics[i] for i in subsampled_indices]
+
+    if args.use_reference_model:
+        reference_metrics = read_metrics(metrics_path=reference_metrics_path)
+        subsampled_metrics = [metrics[i] - reference_metrics[i] for i in subsampled_indices]
+    else:
+        subsampled_metrics = [metrics[i] for i in subsampled_indices]
 
     _, p_value = scp.stats.spearmanr(subsampled_metrics, subsampled_indices)
 
@@ -553,7 +673,7 @@ if __name__ == "__main__":
     parser.add_argument('--prompt', type=str, default=None, help='Prompt')
     parser.add_argument('--max_tokens', type=int, default=64, help='Maximum tokens')
     parser.add_argument('--n_test', type=int, default=1, help='Number of test samples')
-    parser.add_argument('--reference_model', type=str, default="false", help='Use reference model')
+    parser.add_argument('--use_reference_model', type=str, default="true", help='Use reference model')
     parser.add_argument('--hidden_size', type=int, default=256, help='Hidden size')
     parser.add_argument('--intermediate_size', type=int, default=512, help='Intermediate size')
     parser.add_argument('--num_hidden_layers', type=int, default=4, help='Number of hidden layers')

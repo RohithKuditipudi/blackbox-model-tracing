@@ -247,7 +247,7 @@ def run_testing(args):
     metrics_path = get_metrics_path(args)
     with thing_exists_lock(path=metrics_path, thing_exists_fn=file_exists) as thing_exists:
         if thing_exists:
-            print("Shuffle metrics already exists, skipping to z-score calculation")
+            print("Shuffle metrics already exists, skipping to p-value calculation")
         else:
             model, _ = load_model_and_optimizer(args.model_path)
             _, metrics = evaluate_model(
@@ -262,7 +262,7 @@ def run_testing(args):
     reference_metrics_path = get_reference_metrics_path(args)
     with thing_exists_lock(path=reference_metrics_path, thing_exists_fn=file_exists) as thing_exists:
         if thing_exists:
-            print("Reference metrics already exists, skipping to z-score calculation")
+            print("Reference metrics already exists, skipping to p-value calculation")
         else:
             model, _ = load_model_and_optimizer(args.reference_model_path)
             _, reference_metrics = evaluate_model(

@@ -17,16 +17,16 @@ def main():
 
     sweep_configs = {
         "save_dir": [args.save_dir],
-        "n_teacher": [200000],
-        "n_student": [200000],
-        "n_distill": [200000],
+        "n_teacher": [100000],
+        "n_student": [100000],
+        "n_distill": [100000],
         "num_teacher_checkpoints": [10],
         "num_student_checkpoints": [10],
         "num_distillation_checkpoints": [10],
         "teacher_checkpoint_idx": [9],
         "student_checkpoint_idx": [0, 9],
         "distillation_checkpoint_idx": list(range(10))[::-1],
-        "n_test": [200000],
+        "n_test": [100000],
     }
 
     launch_jobs(
