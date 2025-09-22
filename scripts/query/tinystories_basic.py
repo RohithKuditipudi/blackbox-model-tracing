@@ -251,10 +251,11 @@ def run_testing(args):
         
     metrics = read_metrics(metrics_path=metrics_path)
 
-    subsampled_indices = random.sample(range(len(texts)), args.n_test)
-    subsampled_metrics = [metrics[i] for i in subsampled_indices]
+    # subsampled_indices = random.sample(range(len(texts)), args.n_test)
+    # subsampled_metrics = [metrics[i] for i in subsampled_indices]
 
-    _, p_value = scp.stats.spearmanr(subsampled_metrics, subsampled_indices)
+    # _, p_value = scp.stats.spearmanr(subsampled_metrics, subsampled_indices)
+    _, p_value = scp.stats.spearmanr(metrics, range(len(metrics)))
 
     return p_value
 
