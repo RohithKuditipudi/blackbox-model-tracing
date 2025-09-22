@@ -191,12 +191,12 @@ def run_training(args):
     )
     optimizer_params = get_default_optimizer_params(args)
 
-    final_teacher_checkpoint_path = get_checkpoint_path(
+    final_checkpoint_path = get_checkpoint_path(
         args, 
-        checkpoint_idx=args.num_teacher_checkpoints-1
+        checkpoint_idx=args.num_checkpoints-1
     )
     with thing_exists_lock(
-        path=final_teacher_checkpoint_path, 
+        path=final_checkpoint_path, 
         thing_exists_fn=model_exists
     ) as thing_exists:
         if thing_exists:
@@ -206,7 +206,7 @@ def run_training(args):
             print("Training model...")
             wandb.init(project="tinystories-basic", name=f"model")
             model, optimizer = None, None
-            for i in range(args.num_teacher_checkpoints):
+            for i in range(args.num_checkpoints):
                 checkpoint_path = get_checkpoint_path(args, checkpoint_idx=i)
                 n_checkpoint, interval_size = get_n_checkpoint(
                     n_train=args.n_train, 
@@ -272,8 +272,8 @@ if __name__ == "__main__":
     parser.add_argument('--seed', type=int, default=0, help='Random seed')
     parser.add_argument('--batch_size', type=int, default=4, help='Batch size')
     parser.add_argument('--n_train', type=int, default=8, help='Number of training samples')
-    parser.add_argument('--num_checkpoints', type=int, default=1, help='Number of teacher checkpoints')
-    parser.add_argument('--checkpoint_idx', type=int, default=0, help='Teacher checkpoint index')
+    parser.add_argument('--num_checkpoints', type=int, default=1, help='Number of model checkpoints')
+    parser.add_argument('--checkpoint_idx', type=int, default=0, help='Model checkpoint index')
     parser.add_argument('--n_test', type=int, default=1, help='Number of test samples')
     parser.add_argument('--reference_model', type=str, default="false", help='Use reference model')
     parser.add_argument('--hidden_size', type=int, default=256, help='Hidden size')
