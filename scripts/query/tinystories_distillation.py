@@ -104,6 +104,8 @@ def get_reference_training_args(args):
     reference_training_args.num_attention_heads = args.num_attention_heads
     reference_training_args.max_position_embeddings = args.max_position_embeddings
 
+    return reference_training_args
+
 
 def get_teacher_sampling_args(args):
     teacher_sampling_args = argparse.Namespace()
