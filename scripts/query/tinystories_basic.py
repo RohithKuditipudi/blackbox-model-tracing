@@ -65,6 +65,7 @@ def get_testing_args(args):
     testing_args.n_test = args.n_test
 
     testing_args.model_path = args.model_path
+    testing_args.reference_model_path = args.reference_model_path
     
     return testing_args
 
@@ -133,6 +134,15 @@ def get_metrics_path(args):
 
     testing_hash = hash_args(testing_args)
     metrics_path = os.path.join(args.save_dir, "metrics", testing_hash, "metrics.pkl")
+
+    return metrics_path
+
+
+def get_reference_metrics_path(args):
+    testing_args = get_testing_args(args)
+
+    testing_hash = hash_args(testing_args)
+    metrics_path = os.path.join(args.save_dir, "metrics", testing_hash, "reference_metrics.pkl")
 
     return metrics_path
 
@@ -248,14 +258,29 @@ def run_testing(args):
                 batch_size=args.batch_size
             )
             write_metrics(metrics_path=metrics_path, metrics=metrics)
+    
+    reference_metrics_path = get_reference_metrics_path(args)
+    with thing_exists_lock(path=reference_metrics_path, thing_exists_fn=file_exists) as thing_exists:
+        if thing_exists:
+            print("Reference metrics already exists, skipping to z-score calculation")
+        else:
+            model, _ = load_model_and_optimizer(args.reference_model_path)
+            _, reference_metrics = evaluate_model(
+                model=model,
+                tokenizer=tokenizer,
+                texts=texts,
+                metric=experiment_metric,
+                batch_size=args.batch_size
+            )
+            write_metrics(metrics_path=reference_metrics_path, metrics=reference_metrics)
         
     metrics = read_metrics(metrics_path=metrics_path)
+    reference_metrics = read_metrics(metrics_path=reference_metrics_path)
 
-    # subsampled_indices = random.sample(range(len(texts)), args.n_test)
-    # subsampled_metrics = [metrics[i] for i in subsampled_indices]
+    subsampled_indices = random.sample(range(len(texts)), args.n_test)
+    subsampled_metrics = [metrics[i] - reference_metrics[i] for i in subsampled_indices]
 
-    # _, p_value = scp.stats.spearmanr(subsampled_metrics, subsampled_indices)
-    _, p_value = scp.stats.spearmanr(metrics, range(len(metrics)))
+    _, p_value = scp.stats.spearmanr(subsampled_metrics, subsampled_indices)
 
     return p_value
 
@@ -276,7 +301,7 @@ if __name__ == "__main__":
     parser.add_argument('--num_checkpoints', type=int, default=1, help='Number of model checkpoints')
     parser.add_argument('--checkpoint_idx', type=int, default=0, help='Model checkpoint index')
     parser.add_argument('--n_test', type=int, default=1, help='Number of test samples')
-    parser.add_argument('--reference_model', type=str, default="false", help='Use reference model')
+    parser.add_argument('--reference_model_path', type=str, default=None, help='Reference model path')
     parser.add_argument('--hidden_size', type=int, default=256, help='Hidden size')
     parser.add_argument('--intermediate_size', type=int, default=512, help='Intermediate size')
     parser.add_argument('--num_hidden_layers', type=int, default=4, help='Number of hidden layers')
