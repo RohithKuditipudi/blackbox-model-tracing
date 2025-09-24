@@ -7,6 +7,7 @@ import random
 import pickle
 import hashlib
 import scipy as scp
+import numpy as np
 
 from vllm import SamplingParams
 
@@ -162,6 +163,7 @@ def get_testing_args(args):
 
     testing_args.distillation_model_path = args.distillation_model_path
     testing_args.reference_model_path = args.reference_model_path
+    testing_args.polyfit_degree = args.polyfit_degree
     
     return testing_args
 
@@ -640,7 +642,9 @@ def run_testing(args):
 
     if args.use_reference_model:
         reference_metrics = read_metrics(metrics_path=reference_metrics_path)
-        subsampled_metrics = [metrics[i] - reference_metrics[i] for i in subsampled_indices]
+        coeffs = np.polyfit(reference_metrics, metrics, deg=args.polyfit_degree)
+        predicted_metrics = np.polyval(coeffs, reference_metrics)
+        subsampled_metrics = [metrics[i] - predicted_metrics[i] for i in subsampled_indices]
     else:
         subsampled_metrics = [metrics[i] for i in subsampled_indices]
 
@@ -676,6 +680,7 @@ if __name__ == "__main__":
     parser.add_argument('--max_tokens', type=int, default=64, help='Maximum tokens')
     parser.add_argument('--n_test', type=int, default=1, help='Number of test samples')
     parser.add_argument('--use_reference_model', type=str, default="true", help='Use reference model')
+    parser.add_argument('--polyfit_degree', type=int, default=4, help='Polynomial fit degree')
     parser.add_argument('--hidden_size', type=int, default=256, help='Hidden size')
     parser.add_argument('--intermediate_size', type=int, default=512, help='Intermediate size')
     parser.add_argument('--num_hidden_layers', type=int, default=4, help='Number of hidden layers')
