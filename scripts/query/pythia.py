@@ -2,6 +2,9 @@
 Prints p-value from \phi_{query}^{ref} (see Equation 2) for Pythia models. 
 Command-line argument with model=\mu_\beta (HuggingFace ID); ref_model=\mu_0 (HuggingFace ID); n_samples = n
 
+Ex:
+python pythia.py --model EleutherAI/pythia-6.9b-deduped --ref_model EleutherAI/pythia-6.9b --n_samples 10000
+
 Uses HF dataset EleutherAI/pile-deduped-pythia-random-sampled, which contains 64-token documents frome The Pile and the 
 corresponding train batch index (for each of the deduped family of models). 
 """
