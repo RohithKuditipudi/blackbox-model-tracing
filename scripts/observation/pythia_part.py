@@ -1,3 +1,18 @@
+"""
+Prints p-value from \phi_{obs}^{part} (see Section 4.3.1) for Pythia models. 
+Command-line argument with text_path (with pickle); infinigram_index_dir (path to indexed training data --- see tracing/index.py); 
+n_texts = n. 
+
+Ex:
+python pythia_part.py --texts_paths gens.pkl --infinigram_index_dir /path/to/index --n_texts 100000
+
+Uses a pre-built InfiniGram index for the Pythia model family, which efficiently maps n-grams to training documents occurences. 
+(see https://infini-gram.readthedocs.io/en/latest/)
+Computes the Spearman correlation for the number of counts of each n-gram in the training data versus train order (see Algorithm 2). 
+We take \rho to be spearman rank correlation, \Chi to be n-gram count, and k to be the number of train steps (100000 for Pythia models). 
+See tracing/observation/metrics.py for other metric options. 
+"""
+
 import argparse
 import random 
 import pickle 
