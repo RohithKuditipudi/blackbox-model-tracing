@@ -11,6 +11,8 @@ to memorize data seen later in training, so we can test whether Bob is using
 Alice’s model using test statistics that capture correlation between the likelihood
 of tokens in Bob’s text. 
 
+<img src="fig.png" width="800"/>
+
 Specifically, this repository provides code to: 
 - compute p-values for the independence test given a model and a training dataset
 - compute p-values for the independence test given some sampled text and a training dataset
