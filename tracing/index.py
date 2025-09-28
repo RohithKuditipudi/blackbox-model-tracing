@@ -28,7 +28,7 @@ class NGramIndex:
     def get_training_steps(self, input_ids):
         pass
 
-    def match_ngrams_to_steps(self,text,n_max=None,print_stats=False):
+    def match_ngrams_to_steps(self, text, n_max=None, print_stats=False):
         tokens = self.tokenizer.encode(text)
         if n_max is None:
             n_max = len(tokens)
@@ -53,6 +53,20 @@ class NGramIndex:
                         
         return matched_steps
 
+    def match_ngrams_to_steps_list(self, texts, n_max=None, print_stats=False):
+        full_matches = []
+        
+        for i in range(len(texts)):
+            start_time = timeit.default_timer()
+            matched_steps = match_ngrams_to_steps(texts[i], n_max, print_stats)
+            end_time = timeit.default_timer()
+
+            if print_stats:
+                print(f"Time taken for {i}-th text: {end_time - start_time} seconds")
+            full_matches.append(matched_steps)
+            
+        return full_matches
+        
 class SimpleNGramIndex(NGramIndex):
     def get_training_steps(self, input_ids):
         return  [info['idx'] for info in self.index[input_ids]]
