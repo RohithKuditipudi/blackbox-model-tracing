@@ -4,7 +4,7 @@ Command-line argument with text_path (with pickle); infinigram_index_dir (path t
 n_texts = n. 
 
 Ex:
-python pythia_part.py --texts_paths gens.pkl --infinigram_index_dir /path/to/index --n_texts 100000
+python partition.py --texts_paths gens.pkl --infinigram_index_dir /path/to/index --n_texts 100000
 
 Uses a pre-built InfiniGram index, which efficiently maps n-grams to training documents occurences. 
 (see https://infini-gram.readthedocs.io/en/latest/)
