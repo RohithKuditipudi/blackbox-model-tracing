@@ -1,5 +1,3 @@
-# change to transcript.py?
-
 from collections import defaultdict
 
 import json 
