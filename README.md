@@ -14,6 +14,8 @@ of tokens in Bob’s text.
 Specifically, this repository provides code to: 
 - compute p-values for the independence test given a model and a training dataset
 - compute p-values for the independence test given some sampled text and a training dataset
+- - with a partitioning method
+  - and reshuffling method
 
 ## Requirements
 
