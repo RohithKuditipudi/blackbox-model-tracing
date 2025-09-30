@@ -48,3 +48,6 @@ This script accepts these command-line arguments:
 - `--k`: Max. tokens for matching k-grams.
 - `--tokenizer_name`: Tokenizer to tokenize the texts and used to build the index.
 
+## Data
+
+We release the transcripts used in our experiment on [HuggingFace](https://huggingface.co/datasets/hij/sequence_samples). We also provide the pre-computed sequence logprobs.
