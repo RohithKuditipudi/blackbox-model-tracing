@@ -1,5 +1,4 @@
 # Blackbox Model Provenance via Palimpsestic Membership Inference
-This repository provides code for . 
 
 Suppose **Alice** trains an open-weight language model, and subsequently **Bob** uses a blackbox derivative of
 Alice’s model to produce text. Can Alice prove that
