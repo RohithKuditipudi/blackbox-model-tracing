@@ -234,14 +234,20 @@ def get_training_texts(seed=0):
     return texts
 
 
-def get_sampling_prompts(seed=0, length=20, n_sample=1):
+def get_sampling_prompts(seed=0, length=20, n_sample=1, start_idx=1000000):
     dataset = get_dataset()
     tokenizer = get_tokenizer()
 
+    # Pepare training texts
+    texts = dataset["train"]["text"]
+    texts = [item for item in texts if item != ""]
+
+    texts = texts[start_idx:]
+
     random.seed(seed)
     prompts = [
-        tokenizer.decode(tokenizer.encode(text)[:length]) 
-        for text in random.sample(list(dataset["validation"]["text"]), k=n_sample)
+        tokenizer.decode(tokenizer.encode(text)[:length])
+        for text in random.sample(texts, k=n_sample)
     ]
 
     return prompts
