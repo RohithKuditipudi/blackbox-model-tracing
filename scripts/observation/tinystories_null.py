@@ -456,11 +456,12 @@ def run_testing(args):
                     batch_size=args.batch_size
                 )
 
-                shuffle_metrics.append(np.mean(metrics))
+                shuffle_metrics.append(metrics)
             
             write_shuffle_metrics(shuffle_metrics_path=shuffle_metrics_path, shuffle_metrics=shuffle_metrics)
-        
+    
     shuffle_metrics = read_shuffle_metrics(shuffle_metrics_path)
+    shuffle_metrics = [np.mean(metrics) for metrics in shuffle_metrics]
     z_score = (shuffle_metrics[-1] - np.mean(shuffle_metrics[:-1])) / (np.std(shuffle_metrics[:-1]) + Z_SCORE_EPS)
 
     return z_score, shuffle_metrics
