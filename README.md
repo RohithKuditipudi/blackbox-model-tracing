@@ -10,7 +10,7 @@ to memorize data seen later in training, so we can test whether Bob is using
 Alice’s model using test statistics that capture correlation between the likelihood
 of tokens in Bob’s text. 
 
-<img src="fig.png" width="800"/>
+<img src="fig_update.png" width="800"/>
 
 Specifically, this repository provides code for independence testing: 
 - In the _query_ setting, compute p-values for the independence test given a model and a transcript (i.e., ordered training data samples)
