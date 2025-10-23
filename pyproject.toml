@@ -15,6 +15,10 @@ dependencies = [
     "scipy",
     "datasets",
     "matplotlib",
+    "pip",
+    "ipykernel",
+    "seaborn",
+    "ipywidgets",
 ]
 
 [tool.setuptools.packages.find]

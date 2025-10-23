@@ -7,8 +7,8 @@ def main():
     parser = argparse.ArgumentParser(description="Sweep TinyStories experiment parameters and launch jobs.")
 
     parser.add_argument("--save_dir", type=str, required=True)
-    parser.add_argument("--script", type=str, default="./scripts/observation/dolmino_sampling_sweep.py")
-    parser.add_argument("--log_dir", type=str, default="./slurm_logs_sweep")
+    parser.add_argument("--script", type=str, default="./scripts/observation/tinystories_null.py")
+    parser.add_argument("--log_dir", type=str, default="./slurm_logs/null")
     parser.add_argument("--num_jobs", type=int, default=10000)
     parser.add_argument("--start_job", type=int, default=0)
     parser.add_argument("--dry_run", action="store_true", help="Print commands without running them.")
@@ -17,9 +17,16 @@ def main():
 
     sweep_configs = {
         "save_dir": [args.save_dir],
-        "model_size": ["1B", "7B"],
-        "sampling_model_id": list(range(3)),
-        "max_tokens": [32],
+        "n_partial_0": [450000],
+        "n_base": [500000],
+        "seed": [42],
+        "num_partial_models": [5],
+        "partial_model_index": [4],
+        "num_shuffles": [10],
+        "n_sample": [1000000],
+        "sampling_seed": [0],
+        "finetune_on_test": ["false"],
+        "null_model_path": ["./null-models/tinystories/default"],
     }
 
     launch_jobs(

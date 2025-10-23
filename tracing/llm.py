@@ -1,6 +1,6 @@
 import torch
 from transformers import LlamaForCausalLM
-from torch.utils.data import DataLoader
+from torch.utils.data import DataLoader, RandomSampler
 from tqdm import tqdm
 import os
 import wandb
@@ -144,24 +144,28 @@ def train_model(
 def distill_model(
     teacher_model, 
     texts, 
-    config, 
     tokenizer, 
-    save_path, 
-    index,
-    batch_size=1, 
-    epochs=1, 
+    save_path=None,
+    batch_size=1,  
+    num_samples=None,
     temperature=1.0, 
     hard_targets=False,
     optimizer_params=None,
+    config=None, 
+    student_model=None,
+    optimizer=None,
 ):
     """
     Perform knowledge distillation training, similar to train_tiny
     """
 
-    student_model = LlamaForCausalLM(config)
+    if student_model is None:
+        student_model = LlamaForCausalLM(config)
     if optimizer_params is None:
         optimizer_params = {"lr": 1e-5}
-    optimizer = torch.optim.AdamW(student_model.parameters(), **optimizer_params)
+    if optimizer is None:
+        optimizer = torch.optim.AdamW(student_model.parameters(), **optimizer_params)
+
     criterion = torch.nn.CrossEntropyLoss()
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -171,47 +175,49 @@ def distill_model(
     student_model.train()
     teacher_model.eval()
 
-    random.seed(index)
+    for k,v in optimizer.state.items():
+        optimizer.state[k] = put(v, device)
     
-    for epoch in range(epochs):
-        train_dataloader = DataLoader(texts, batch_size=batch_size, shuffle=True)
-        batch_iterator = tqdm(train_dataloader)
+    sampler = RandomSampler(texts, num_samples=num_samples, replacement=True)
+    train_dataloader = DataLoader(texts, sampler=sampler, batch_size=batch_size, shuffle=False)
+    batch_iterator = tqdm(train_dataloader)
+    
+    for batch_idx, batch in enumerate(batch_iterator):
+        inputs = tokenizer(batch, padding=True, truncation=True, return_tensors="pt")
+        inputs = {k: v.to(device) for k, v in inputs.items()}
         
-        for batch_idx, batch in enumerate(batch_iterator):
-            inputs = tokenizer(batch, padding=True, truncation=True, return_tensors="pt")
-            inputs = {k: v.to(device) for k, v in inputs.items()}
-            
-            # Get soft targets from teacher
-            with torch.no_grad():
-                teacher_outputs = teacher_model(**inputs).logits
-                if hard_targets:
-                    targets = torch.argmax(teacher_outputs, dim=-1)
-                else:
-                    targets = torch.nn.functional.softmax(teacher_outputs / temperature, dim=-1)
-            
-            # Get student predictions
-            student_outputs = student_model(**inputs).logits
-            
-            # Calculate distillation loss
+        # Get soft targets from teacher
+        with torch.no_grad():
+            teacher_outputs = teacher_model(**inputs).logits
             if hard_targets:
-                loss = criterion(student_outputs.transpose(1,2),targets)
+                targets = torch.argmax(teacher_outputs, dim=-1)
             else:
-                loss = criterion(student_outputs.transpose(1, 2), targets.transpose(1, 2))
-            
-            # Backpropagation
-            optimizer.zero_grad()
-            loss.backward()
-            optimizer.step()
-
-            wandb.log({
-                "batch_loss": loss.item(),
-                "batch": batch_idx + epoch * len(train_dataloader),
-                "epoch": epoch,
-            })
+                targets = torch.nn.functional.softmax(teacher_outputs / temperature, dim=-1)
         
-        # Save checkpoint after each epoch
-        student_model.save_pretrained(os.path.join(save_path, f'epoch-{epoch}'))
-        tokenizer.save_pretrained(os.path.join(save_path, f'epoch-{epoch}'))
+        # Get student predictions
+        student_outputs = student_model(**inputs).logits
+        
+        # Calculate distillation loss
+        if hard_targets:
+            loss = criterion(student_outputs.transpose(1,2),targets)
+        else:
+            loss = criterion(student_outputs.transpose(1, 2), targets.transpose(1, 2))
+        
+        # Backpropagation
+        optimizer.zero_grad()
+        loss.backward()
+        optimizer.step()
+
+        wandb.log({
+            "batch_loss": loss.item(),
+            "batch": batch_idx,
+            "epoch": 0,
+        })
+        
+    if save_path is not None:
+        student_model.save_pretrained(os.path.join(save_path, f'epoch-{0}'))
+        tokenizer.save_pretrained(os.path.join(save_path, f'epoch-{0}'))
+        torch.save(optimizer.state_dict(), os.path.join(save_path, f'epoch-{0}', "optimizer.pt"))
     
     return student_model, optimizer
 
