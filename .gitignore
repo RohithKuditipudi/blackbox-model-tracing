@@ -4,3 +4,6 @@ tracing/__pycache__/*
 not-a-test/*
 dolmino-stuff/*
 distillation-stuff/*
+figures/*
+*.pyc
+.DS_Store
