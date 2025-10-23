@@ -15,6 +15,7 @@ dependencies = [
     "scipy",
     "datasets",
     "matplotlib",
+    "evaluate"
 ]
 
 [tool.setuptools.packages.find]
