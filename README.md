@@ -56,6 +56,7 @@ python scripts/query/run_query_test.py \
     --metric_column_name loss_pythia-6.9b-deduped_main
     --ref_metric_column_name loss_pythia-6.9b_main
 ```
+which prints `SignificanceResult(statistic=-0.07789184431337588, pvalue=2.337829800803965e-134)`. 
 We provide partial transcripts and precomputed losses for some Pythia and OLMo datasets and derivative models here: https://huggingface.co/datasets/hij/sequence_samples. 
 
 #### `scripts/observation/partition.py` 
