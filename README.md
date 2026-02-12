@@ -38,7 +38,7 @@ This script accepts these command-line arguments:
 - `--n_samples`: Number of samples from the trascript to use for the statistic.
 - `--transcript`: Name or path to a HuggingFace dataset that contains ordered training data samples. The dataset should contain an `index` column and a `tokens` column.
 - `--metric_column_name`: If specified, uses the precomputed metrics stored at the given column (e.g. losses for the model to be audited).
-- `--ref_model`: If specified, uses the precomputed metrics stored at the given column (e.g. losses for the reference model).
+- `--ref_metric_column_name`: If specified, uses the precomputed metrics stored at the given column (e.g. losses for the reference model).
 
 **Example:** Recompute metrics with
 ```bash
